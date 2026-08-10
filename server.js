@@ -71,6 +71,8 @@ const PADDLE_MARGIN = 24;
 const BALL_RADIUS = 8;
 const TICK_RATE_MS = 1000 / 30; // 30 uppdateringar/sekund till klienterna
 const PADDLE_SPEED = 840; // server-enheter/sekund; samma värde används för klientprediktion
+const SERVE_POSITION_LEFT_X = CANVAS_WIDTH * 0.32;
+const SERVE_POSITION_RIGHT_X = CANVAS_WIDTH * 0.68;
 
 // Matchflöde
 const PREGAME_COUNTDOWN_SECONDS = 30;
@@ -323,6 +325,7 @@ for (const courtKey of Object.keys(COURTS)) {
     phase: 'waiting', // 'waiting' | 'pregame' | 'playing' | 'finished'
     rally: null, // 'awaiting-serve' | 'live' | 'point-pause' | 'finished'
     server: null, // 'king' | 'challenger' — vem som servar innevarande game
+    servePositionVersion: 0, // ökas när spelarna flyttas till nästa diagonala serveuppställning
     pregameCountdown: 0,
     matchSecondsRemaining: 0,
     serveDeadline: 0,
@@ -379,6 +382,24 @@ function pointLabel(mine, theirs) {
   return table[Math.min(mine, 3)];
 }
 
+function getServeSide(room) {
+  return (room.king.points + room.challenger.points) % 2 === 0 ? 'deuce' : 'ad';
+}
+
+/** Placerar servare och mottagare diagonalt enligt tennisens deuce/ad-sidor. */
+function positionPlayersForServe(room) {
+  const serveSide = getServeSide(room);
+  const serverIsKing = room.server === 'king';
+  const serverX = serveSide === 'deuce'
+    ? (serverIsKing ? SERVE_POSITION_RIGHT_X : SERVE_POSITION_LEFT_X)
+    : (serverIsKing ? SERVE_POSITION_LEFT_X : SERVE_POSITION_RIGHT_X);
+  const receiverX = CANVAS_WIDTH - serverX;
+
+  room[room.server].x = serverX;
+  room[otherRole(room.server)].x = receiverX;
+  room.servePositionVersion += 1;
+}
+
 // ─────────────────────────────────────────────────────────────────
 // LOBBY / STATE-BROADCAST
 // ─────────────────────────────────────────────────────────────────
@@ -392,6 +413,8 @@ function getPublicState(courtKey) {
     phase: room.phase,
     rally: room.rally,
     server: room.server,
+    serveSide: room.king && room.challenger ? getServeSide(room) : 'deuce',
+    servePositionVersion: room.servePositionVersion,
     pregameCountdown: room.pregameCountdown,
     matchSecondsRemaining: room.matchSecondsRemaining,
     king: room.king
@@ -601,6 +624,7 @@ function beginMatch(courtKey) {
   room.phase = 'playing';
   room.king.moveDirection = 0;
   room.challenger.moveDirection = 0;
+  positionPlayersForServe(room);
   positionBallForServe(room);
   broadcastState(courtKey);
 
@@ -690,8 +714,10 @@ function registerPoint(courtKey, scorerRole) {
     });
   }
 
-  broadcastState(courtKey);
   if (matchEnded) return;
+
+  positionPlayersForServe(room);
+  broadcastState(courtKey);
 
   const pauseMs = gameWon ? GAME_ANNOUNCE_PAUSE_MS : POINT_PAUSE_MS;
   clearRoomTimer(room);
