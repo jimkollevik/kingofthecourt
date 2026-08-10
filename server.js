@@ -70,6 +70,8 @@ const PADDLE_HEIGHT = 14;
 const PADDLE_MARGIN = 24;
 const BALL_RADIUS = 8;
 const TICK_RATE_MS = 1000 / 30; // 30 uppdateringar/sekund till klienterna
+const MAX_PADDLE_SPEED = 960; // server-enheter/sekund; klienten kör något långsammare
+const PADDLE_MOVE_GRACE = 8; // liten nätverksmarginal utan att tillåta teleportering
 
 // Matchflöde
 const PREGAME_COUNTDOWN_SECONDS = 30;
@@ -304,6 +306,8 @@ function createEmptyPlayer(id, username) {
     points: 0,
     games: 0,
     lastSwingAt: 0,
+    lastPaddleMoveAt: 0,
+    lastPaddleMoveSequence: 0,
   };
 }
 
@@ -393,6 +397,7 @@ function getPublicState(courtKey) {
       ? {
           username: room.king.username,
           x: room.king.x,
+          moveSequence: room.king.lastPaddleMoveSequence,
           points: pointLabel(room.king.points, room.challenger ? room.challenger.points : 0),
           games: room.king.games,
           winStreak: room.king.winStreak || 0,
@@ -403,6 +408,7 @@ function getPublicState(courtKey) {
       ? {
           username: room.challenger.username,
           x: room.challenger.x,
+          moveSequence: room.challenger.lastPaddleMoveSequence,
           points: pointLabel(room.challenger.points, room.king ? room.king.points : 0),
           games: room.challenger.games,
         }
@@ -906,13 +912,29 @@ io.on('connection', (socket) => {
     if (!room || room.phase !== 'playing') return;
 
     const rawX = Number(payload && payload.x);
+    const sequence = Number(payload && payload.sequence);
     if (!Number.isFinite(rawX)) return;
-    const clampedX = clamp(rawX, PADDLE_WIDTH / 2, CANVAS_WIDTH - PADDLE_WIDTH / 2);
 
-    if (room.king && room.king.id === socket.id) {
-      room.king.x = clampedX;
-    } else if (room.challenger && room.challenger.id === socket.id) {
-      room.challenger.x = clampedX;
+    let playerObj = null;
+    if (room.king && room.king.id === socket.id) playerObj = room.king;
+    if (room.challenger && room.challenger.id === socket.id) playerObj = room.challenger;
+    if (!playerObj) return;
+
+    const now = Date.now();
+    const elapsedSeconds = playerObj.lastPaddleMoveAt
+      ? clamp((now - playerObj.lastPaddleMoveAt) / 1000, 0, 0.1)
+      : TICK_RATE_MS / 1000;
+    const maxDelta = MAX_PADDLE_SPEED * elapsedSeconds + PADDLE_MOVE_GRACE;
+    const requestedX = clamp(rawX, PADDLE_WIDTH / 2, CANVAS_WIDTH - PADDLE_WIDTH / 2);
+
+    playerObj.x = clamp(
+      requestedX,
+      playerObj.x - maxDelta,
+      playerObj.x + maxDelta
+    );
+    playerObj.lastPaddleMoveAt = now;
+    if (Number.isSafeInteger(sequence) && sequence > playerObj.lastPaddleMoveSequence) {
+      playerObj.lastPaddleMoveSequence = sequence;
     }
   });
 
