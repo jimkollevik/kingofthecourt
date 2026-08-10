@@ -33,6 +33,7 @@
     min-height: 100vh;
     overflow-x: hidden;
   }
+  html { scrollbar-gutter: stable; }
 
   ::selection { background: var(--neon-amber); color: #10131f; }
 
@@ -837,6 +838,8 @@
   let lastCoinToss = null;
   let recordsStore = {}; // court -> { longestKingStreak, mostKingMinutes } — cache för modalen
   let latestOwnCourtState = null; // senaste 'state' för banan man själv är i, för att kunna re-rendera reign-panelen
+  let previousCourtState = null;
+  let stateSnapshotReceivedAt = performance.now();
   const heldKeys = { left: false, right: false };
 
   const socket = io();
@@ -1173,11 +1176,45 @@
 
     updateOverlay(state);
     updateServeHint(state);
-    renderCourt(state);
 
+    previousCourtState = latestOwnCourtState && latestOwnCourtState.court === state.court
+      ? latestOwnCourtState
+      : state;
     latestOwnCourtState = state;
+    stateSnapshotReceivedAt = performance.now();
     renderReignPanel(state);
   });
+
+  const SERVER_STATE_INTERVAL_MS = 1000 / 30;
+  function getInterpolatedCourtState(now) {
+    if (!latestOwnCourtState || !previousCourtState) return latestOwnCourtState;
+    if (
+      previousCourtState.phase !== latestOwnCourtState.phase ||
+      previousCourtState.rally !== latestOwnCourtState.rally
+    ) {
+      return latestOwnCourtState;
+    }
+
+    const progress = Math.max(0, Math.min(1, (now - stateSnapshotReceivedAt) / SERVER_STATE_INTERVAL_MS));
+    const interpolate = (from, to) => from + (to - from) * progress;
+    const interpolatePlayer = (previousPlayer, latestPlayer) => {
+      if (!previousPlayer || !latestPlayer || previousPlayer.username !== latestPlayer.username) return latestPlayer;
+      return { ...latestPlayer, x: interpolate(previousPlayer.x, latestPlayer.x) };
+    };
+
+    return {
+      ...latestOwnCourtState,
+      king: interpolatePlayer(previousCourtState.king, latestOwnCourtState.king),
+      challenger: interpolatePlayer(previousCourtState.challenger, latestOwnCourtState.challenger),
+      ball: previousCourtState.ball && latestOwnCourtState.ball
+        ? {
+            ...latestOwnCourtState.ball,
+            x: interpolate(previousCourtState.ball.x, latestOwnCourtState.ball.x),
+            y: interpolate(previousCourtState.ball.y, latestOwnCourtState.ball.y),
+          }
+        : latestOwnCourtState.ball,
+    };
+  }
 
   function renderQueue(queue) {
     queueListEl.innerHTML = '';
@@ -1495,7 +1532,7 @@
     }
 
     if (latestOwnCourtState) {
-      renderCourt(latestOwnCourtState);
+      renderCourt(getInterpolatedCourtState(now));
     }
     requestAnimationFrame(keyboardLoop);
   }
@@ -1536,6 +1573,8 @@
     heldKeys.right = false;
     lastCoinToss = null;
     latestOwnCourtState = null;
+    previousCourtState = null;
+    stateSnapshotReceivedAt = performance.now();
     gameScreen.classList.remove('is-active');
     startScreen.classList.add('is-active');
     selectedCourt = null;
