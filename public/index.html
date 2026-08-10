@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
@@ -114,9 +114,18 @@
     letter-spacing: 1px;
   }
 
-  .rules-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
-  .rules-list li { display: flex; gap: 12px; font-size: 13.5px; line-height: 1.55; color: var(--text-fog); }
-  .rule-num { font-family: var(--font-display); font-size: 10px; color: var(--neon-cyan); flex-shrink: 0; padding-top: 2px; }
+  .rules-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+  .rules-list li {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-fog);
+    text-align: left;
+  }
+  .rule-num { font-family: var(--font-display); font-size: 10px; color: var(--neon-cyan); padding-top: 4px; }
   .rules-list strong { color: var(--neon-amber); font-weight: 700; }
 
   .field-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); margin: 0 0 8px; }
@@ -446,43 +455,41 @@
 <!-- ───────────────────────── START SCREEN ───────────────────────── -->
 <section id="start-screen" class="screen is-active">
   <div class="marquee">
-    <span>KUNGEN AV BANAN</span><span>•</span><span>KING OF THE COURT</span><span>•</span>
-    <span>KUNGEN AV BANAN</span><span>•</span><span>KING OF THE COURT</span><span>•</span>
+    <span>ONE COURT</span><span>•</span><span>ONE THRONE</span><span>•</span>
+    <span>KING OF THE COURT</span><span>•</span><span>WIN AND STAY</span><span>•</span>
   </div>
 
   <header class="hero">
     <h1 class="title">KING <span class="title-accent">OF THE</span> COURT</h1>
-    <p class="subtitle">Retro vertikal tennis. Fyra världsstäder. En tron per bana.</p>
+    <p class="subtitle">Retro vertical tennis. Four world cities. One throne on every court.</p>
   </header>
 
   <div class="start-layout">
     <div class="panel rules-panel">
-      <h2 class="panel-title">Så funkar det</h2>
+      <h2 class="panel-title">How it works</h2>
       <ol class="rules-list">
-        <li><span class="rule-num">01</span> Skriv ditt spelarnamn och välj bana.</li>
-        <li><span class="rule-num">02</span> De två första i kön möts direkt: <strong>Kungen</strong> spelar längst ner, <strong>Utmanaren</strong> längst upp.</li>
-        <li><span class="rule-num">03</span> Alla andra hamnar automatiskt i <strong>åskådarläge</strong> och ser matchen live på skärmen medan de väntar.</li>
-        <li><span class="rule-num">04</span> Styr paddeln med <strong>piltangenterna</strong> (↔) och slå/serva med <strong>Mellanslag</strong>.</li>
-        <li><span class="rule-num">05</span> Träffa tajmat med Mellanslag för ett <strong>hårt slag</strong> — annars blir det en lös retur.</li>
-        <li><span class="rule-num">06</span> Poäng räknas enligt riktig tennis: Love–15–30–40–Deuce–Advantage–Game.</li>
-        <li><span class="rule-num">07</span> Vinnaren behåller/tar tronen som Kung. Förloraren går bakerst i kön.</li>
+        <li><span class="rule-num">01</span><span>Enter your player name and choose a court.</span></li>
+        <li><span class="rule-num">02</span><span>The first two players compete: the <strong>King</strong> at the bottom and the <strong>Challenger</strong> at the top. Everyone else watches live while waiting in the queue.</span></li>
+        <li><span class="rule-num">03</span><span>Hold the <strong>arrow keys</strong> (↔) to move. Press <strong>Space</strong> for every serve and return—the paddle lights up when it is time to swing.</span></li>
+        <li><span class="rule-num">04</span><span>Perfect timing produces a <strong>power shot</strong>. Do not swing and the ball goes past you.</span></li>
+        <li><span class="rule-num">05</span><span>Scoring follows tennis rules. The winner claims the throne; the loser returns to the back of the queue.</span></li>
       </ol>
     </div>
 
     <div class="panel join-panel">
-      <h2 class="panel-title">Gå med</h2>
-      <label class="field-label" for="username-input">Spelarnamn</label>
-      <input id="username-input" class="text-input" type="text" maxlength="16" placeholder="T.ex. Backhand_Bea" autocomplete="off" />
+      <h2 class="panel-title">Join the court</h2>
+      <label class="field-label" for="username-input">Player name</label>
+      <input id="username-input" class="text-input" type="text" maxlength="16" placeholder="E.g. Backhand_Bea" autocomplete="off" />
       <p id="join-error" class="error-text" role="alert"></p>
 
-      <h3 class="field-label courts-label">Välj bana</h3>
+      <h3 class="field-label courts-label">Choose a court</h3>
       <div id="court-grid" class="court-grid"></div>
 
-      <button id="play-button" class="play-button" disabled>VÄLJ BANA FÖRST</button>
+      <button id="play-button" class="play-button" disabled>CHOOSE A COURT FIRST</button>
     </div>
   </div>
 
-  <footer class="start-footer">Kommersiellt multiplayer-tennisspel &middot; drivs av Express &amp; Socket.io</footer>
+  <footer class="start-footer">Realtime multiplayer tennis &middot; powered by Express &amp; Socket.io</footer>
 </section>
 
 <!-- ───────────────────────── GAME SCREEN ───────────────────────── -->
@@ -492,26 +499,26 @@
     <aside class="side-panel">
       <div class="side-block">
         <h2 id="court-title" class="side-court-name">—</h2>
-        <p id="role-badge" class="role-badge">Ansluter …</p>
+        <p id="role-badge" class="role-badge">Connecting …</p>
       </div>
 
-      <button id="leaderboard-button" class="leaderboard-open-button" type="button">🏆 TOPPLISTA</button>
-      <button id="records-button" class="records-open-button" type="button">🏰 BANREKORD</button>
+      <button id="leaderboard-button" class="leaderboard-open-button" type="button">🏆 LEADERBOARD</button>
+      <button id="records-button" class="records-open-button" type="button">🏰 COURT RECORDS</button>
 
       <div id="reign-panel" class="side-block reign-panel">
-        <h3 class="side-heading">Regerande King</h3>
-        <p id="reign-current" class="reign-line reign-current">Ingen King än på banan</p>
-        <p id="reign-streak" class="reign-line">🔥 Segersvit: <span id="reign-streak-value">0</span> <span class="reign-record-hint" id="reign-streak-record"></span></p>
-        <p id="reign-time" class="reign-line">⏱ Regeringstid: <span id="reign-time-value">0:00</span> <span class="reign-record-hint" id="reign-time-record"></span></p>
+        <h3 class="side-heading">Reigning King</h3>
+        <p id="reign-current" class="reign-line reign-current">No King on this court yet</p>
+        <p id="reign-streak" class="reign-line">🔥 Win streak: <span id="reign-streak-value">0</span> <span class="reign-record-hint" id="reign-streak-record"></span></p>
+        <p id="reign-time" class="reign-line">⏱ Reign time: <span id="reign-time-value">0:00</span> <span class="reign-record-hint" id="reign-time-record"></span></p>
       </div>
 
       <div class="side-block">
-        <h3 class="side-heading">Kö &amp; åskådare</h3>
-        <p class="spectator-count"><span id="spectator-count">0</span> väntar</p>
+        <h3 class="side-heading">Queue &amp; spectators</h3>
+        <p class="spectator-count"><span id="spectator-count">0</span> waiting</p>
         <ol id="queue-list" class="queue-list"></ol>
       </div>
 
-      <button id="leave-button" class="leave-button" type="button">Lämna bana</button>
+      <button id="leave-button" class="leave-button" type="button">Leave court</button>
     </aside>
 
     <div class="court-column">
@@ -521,8 +528,8 @@
       </div>
 
       <div class="hud hud-top">
-        <span class="hud-role">UTMANARE</span>
-        <span id="challenger-serve-dot" class="serve-dot" title="Servar"></span>
+        <span class="hud-role">CHALLENGER</span>
+        <span id="challenger-serve-dot" class="serve-dot" title="Serving"></span>
         <span id="challenger-name" class="hud-name">—</span>
         <span id="challenger-score" class="hud-score">Love</span>
       </div>
@@ -535,13 +542,13 @@
       </div>
 
       <div class="hud hud-bottom">
-        <span class="hud-role">KUNG</span>
-        <span id="king-serve-dot" class="serve-dot" title="Servar"></span>
+        <span class="hud-role">KING</span>
+        <span id="king-serve-dot" class="serve-dot" title="Serving"></span>
         <span id="king-name" class="hud-name">—</span>
         <span id="king-score" class="hud-score">Love</span>
       </div>
 
-      <p class="controls-hint">↔ Håll inne för att röra dig &nbsp;·&nbsp; ⎵ Mellanslag krävs för varje serve och retur &nbsp;·&nbsp; perfekt tajming ger hårt slag</p>
+      <p class="controls-hint">↔ Hold to move &nbsp;·&nbsp; ⎵ Space for every serve and return &nbsp;·&nbsp; perfect timing hits a power shot</p>
     </div>
 
   </div>
@@ -551,16 +558,16 @@
 <div id="leaderboard-modal" class="modal-backdrop">
   <div class="modal-panel">
     <div class="modal-header">
-      <h2>🏆 TOPPLISTA</h2>
-      <button id="leaderboard-close" class="modal-close" type="button" aria-label="Stäng">✕</button>
+      <h2>🏆 LEADERBOARD</h2>
+      <button id="leaderboard-close" class="modal-close" type="button" aria-label="Close">✕</button>
     </div>
     <table class="leaderboard-table">
       <thead>
-        <tr><th>#</th><th>Spelare</th><th>Vinster</th><th>Matcher</th></tr>
+        <tr><th>#</th><th>Player</th><th>Wins</th><th>Matches</th></tr>
       </thead>
       <tbody id="leaderboard-body"></tbody>
     </table>
-    <p id="leaderboard-empty" class="leaderboard-empty">Inga matcher spelade ännu.</p>
+    <p id="leaderboard-empty" class="leaderboard-empty">No matches played yet.</p>
   </div>
 </div>
 
@@ -568,10 +575,10 @@
 <div id="records-modal" class="modal-backdrop">
   <div class="modal-panel records-panel">
     <div class="modal-header">
-      <h2>🏰 BANREKORD</h2>
-      <button id="records-close" class="modal-close" type="button" aria-label="Stäng">✕</button>
+      <h2>🏰 COURT RECORDS</h2>
+      <button id="records-close" class="modal-close" type="button" aria-label="Close">✕</button>
     </div>
-    <p class="records-intro">Två titlar per bana — försvara tronen längst i rad, eller sitt kvar längst totalt.</p>
+    <p class="records-intro">Two records per court: the longest win streak and the most total time as King.</p>
     <div id="records-grid" class="records-grid"></div>
   </div>
 </div>
@@ -601,10 +608,10 @@
   const PADDLE_H = PADDLE_HEIGHT_SRV * SCALE_Y;
 
   const COURTS_META = {
-    melbourne: { name: 'Melbourne', accent: '#2f8dff' },
-    paris: { name: 'Paris', accent: '#ff8c1a' },
-    london: { name: 'London', accent: '#33d17a' },
-    newyork: { name: 'New York', accent: '#2438b0' },
+    melbourne: { name: 'Melbourne', surface: 'Hard court', court: '#2c76b8', surround: '#17466f', line: '#f3f6ee', accent: '#65d7ff' },
+    paris: { name: 'Paris', surface: 'Clay', court: '#b85f3f', surround: '#7d3527', line: '#f7e8d2', accent: '#ffe06b' },
+    london: { name: 'London', surface: 'Grass', court: '#4f8148', surround: '#285434', line: '#f4f7df', accent: '#f7f4e8' },
+    newyork: { name: 'New York', surface: 'Hard court', court: '#174f8c', surround: '#102f55', line: '#e5edf5', accent: '#ffcf56' },
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -803,7 +810,7 @@
     const statusEl = document.createElement('span');
     statusEl.className = 'ticket-count';
     statusEl.dataset.field = 'status';
-    statusEl.textContent = 'Ledig tron';
+    statusEl.textContent = `${meta.surface} · Open throne`;
     metaEl.appendChild(dotEl);
     metaEl.appendChild(statusEl);
 
@@ -841,13 +848,13 @@
     const nameOk = usernameInput.value.trim().length >= 2;
     if (!selectedCourt) {
       playButton.disabled = true;
-      playButton.textContent = 'VÄLJ BANA FÖRST';
+      playButton.textContent = 'CHOOSE A COURT FIRST';
     } else if (!nameOk) {
       playButton.disabled = true;
-      playButton.textContent = 'SKRIV DITT NAMN';
+      playButton.textContent = 'ENTER YOUR NAME';
     } else {
       playButton.disabled = false;
-      playButton.textContent = `SPELA I ${selectedCourt.toUpperCase()}`;
+      playButton.textContent = `PLAY IN ${selectedCourt.toUpperCase()}`;
     }
   }
 
@@ -888,14 +895,15 @@
       const statusEl = ticket.querySelector('[data-field="status"]');
       let label;
       if (info.kingName && info.challengerName) {
-        label = info.phase === 'pregame' ? `${info.kingName} vs ${info.challengerName} · gör redo` : `${info.kingName} vs ${info.challengerName}`;
+        label = info.phase === 'pregame' ? `${info.kingName} vs ${info.challengerName} · get ready` : `${info.kingName} vs ${info.challengerName}`;
       } else if (info.kingName) {
-        label = `${info.kingName} väntar på utmanare`;
+        label = `${info.kingName} is waiting for a challenger`;
       } else {
-        label = 'Ledig tron';
+        label = 'Open throne';
       }
-      if (info.queueLength > 0) label += ` · ${info.queueLength} i kö`;
-      statusEl.textContent = label;
+      if (info.queueLength > 0) label += ` · ${info.queueLength} in queue`;
+      const surface = COURTS_META[courtKey] ? COURTS_META[courtKey].surface : '';
+      statusEl.textContent = surface ? `${surface} · ${label}` : label;
     });
 
     if (myCourt && snapshot[myCourt]) {
@@ -930,14 +938,14 @@
 
     roleBadgeEl.classList.remove('role-king', 'role-challenger', 'role-spectator');
     if (payload.role === 'king') {
-      roleBadgeEl.textContent = '👑 Du är KUNGEN — försvara tronen!';
+      roleBadgeEl.textContent = '👑 You are the KING — defend the throne!';
       roleBadgeEl.classList.add('role-king');
     } else if (payload.role === 'challenger') {
-      roleBadgeEl.textContent = '⚡ Du är UTMANAREN — ta tronen!';
+      roleBadgeEl.textContent = '⚡ You are the CHALLENGER — take the throne!';
       roleBadgeEl.classList.add('role-challenger');
     } else {
-      const pos = payload.position ? ` (plats ${payload.position})` : '';
-      roleBadgeEl.textContent = `👀 Du är åskådare${pos}`;
+      const pos = payload.position ? ` (position ${payload.position})` : '';
+      roleBadgeEl.textContent = `👀 You are watching${pos}`;
       roleBadgeEl.classList.add('role-spectator');
     }
   });
@@ -949,25 +957,25 @@
     lastCoinToss = payload;
     AudioEngine.playCountdownAlarm();
     const servingName = payload.server === 'king' ? payload.king : payload.challenger;
-    pushToast(`🪙 Slantsingling: ${payload.coinToss.result.toUpperCase()} — ${servingName} servar först!`, 'info', 4200);
+    pushToast(`🪙 Coin toss: ${payload.coinToss.result.toUpperCase()} — ${servingName} serves first!`, 'info', 4200);
   });
 
   socket.on('pointWon', (payload) => {
     AudioEngine.playPoint();
-    const label = payload.winner === 'king' ? 'Kungen' : 'Utmanaren';
-    pushToast(`Poäng: ${label} (${payload.score.king}–${payload.score.challenger})`, 'point', 1300);
+    const label = payload.winner === 'king' ? 'King' : 'Challenger';
+    pushToast(`Point: ${label} (${payload.score.king}–${payload.score.challenger})`, 'point', 1300);
   });
 
   socket.on('gameWon', (payload) => {
     AudioEngine.playGameWon();
-    pushToast(`🎾 GAME till ${payload.winnerUsername}! (${payload.games.king}–${payload.games.challenger})`, 'game', 2400);
+    pushToast(`🎾 GAME to ${payload.winnerUsername}! (${payload.games.king}–${payload.games.challenger})`, 'game', 2400);
   });
 
   socket.on('matchEnd', (payload) => {
     const won = payload.winner === myRole;
     AudioEngine.playMatchEnd(won);
-    const reasonText = payload.reason === 'time' ? 'Tiden tog slut' : 'Matchen avgjord';
-    pushToast(`🏆 ${reasonText} — ${payload.winnerUsername} vinner matchen!`, 'match', 5500);
+    const reasonText = payload.reason === 'time' ? 'Time is up' : 'Match complete';
+    pushToast(`🏆 ${reasonText} — ${payload.winnerUsername} wins the match!`, 'match', 5500);
   });
 
   socket.on('hitFeedback', (payload) => {
@@ -1031,7 +1039,7 @@
   function formatMinutes(minutes) {
     const m = Math.floor(minutes);
     const s = Math.round((minutes - m) * 60);
-    return s > 0 ? `${m} min ${s} s` : `${m} min`;
+    return s > 0 ? `${m} min ${s} sec` : `${m} min`;
   }
 
   function renderRecordsModal() {
@@ -1051,13 +1059,13 @@
       card.appendChild(title);
 
       card.appendChild(buildRecordRow(
-        '🔥 Flest vinster i rad som King',
+        '🔥 Longest win streak as King',
         rec && rec.longestKingStreak && rec.longestKingStreak.wins > 0
-          ? `${rec.longestKingStreak.wins} vinster — ${rec.longestKingStreak.username}`
+          ? `${rec.longestKingStreak.wins} wins — ${rec.longestKingStreak.username}`
           : null
       ));
       card.appendChild(buildRecordRow(
-        '⏱ Flest minuter som King',
+        '⏱ Most total time as King',
         rec && rec.mostKingMinutes && rec.mostKingMinutes.minutes > 0
           ? `${formatMinutes(rec.mostKingMinutes.minutes)} — ${rec.mostKingMinutes.username}`
           : null
@@ -1079,7 +1087,7 @@
       valueEl.textContent = value;
     } else {
       valueEl.className = 'record-row-empty';
-      valueEl.textContent = 'Inget rekord ännu';
+      valueEl.textContent = 'No record yet';
     }
     row.appendChild(labelEl);
     row.appendChild(valueEl);
@@ -1101,13 +1109,13 @@
     const meta = payload.meta || {};
     if (meta.event === 'new-streak-record') {
       AudioEngine.playNewRecord();
-      pushToast(`🔥 NYTT REKORD! ${meta.username} har nu ${meta.streak} vinster i rad som King!`, 'record', 4500);
+      pushToast(`🔥 NEW RECORD! ${meta.username} has ${meta.streak} consecutive wins as King!`, 'record', 4500);
     } else if (meta.event === 'reign-ended') {
       if (meta.newTimeRecord) {
         AudioEngine.playNewRecord();
-        pushToast(`⏱ NYTT REKORD! ${meta.username} satt som King i totalt ${formatMinutes(payload.records.mostKingMinutes.minutes)}!`, 'record', 4500);
+        pushToast(`⏱ NEW RECORD! ${meta.username} has reigned for ${formatMinutes(payload.records.mostKingMinutes.minutes)} in total!`, 'record', 4500);
       } else {
-        pushToast(`👑 ${meta.username} förlorade kronan (regerade i ${meta.reignMinutes} min, svit: ${meta.finalStreak})`, 'info', 3200);
+        pushToast(`👑 ${meta.username} lost the crown (reign: ${meta.reignMinutes} min, streak: ${meta.finalStreak})`, 'info', 3200);
       }
     }
     if (latestOwnCourtState) renderReignPanel(latestOwnCourtState);
@@ -1118,7 +1126,7 @@
   // åskådare kan följa jakten på rekorden i realtid.
   function renderReignPanel(state) {
     if (!state.king) {
-      reignCurrentEl.textContent = 'Ingen King än på banan';
+      reignCurrentEl.textContent = 'No King on this court yet';
       reignStreakValueEl.textContent = '0';
       reignTimeValueEl.textContent = '0:00';
       reignStreakRecordEl.textContent = '';
@@ -1131,14 +1139,14 @@
 
     const rec = recordsStore[state.court];
     if (rec && rec.longestKingStreak && rec.longestKingStreak.wins > 0) {
-      reignStreakRecordEl.textContent = `Rekord: ${rec.longestKingStreak.wins} (${rec.longestKingStreak.username})`;
+      reignStreakRecordEl.textContent = `Record: ${rec.longestKingStreak.wins} (${rec.longestKingStreak.username})`;
     } else {
-      reignStreakRecordEl.textContent = 'Inget rekord ännu';
+      reignStreakRecordEl.textContent = 'No record yet';
     }
     if (rec && rec.mostKingMinutes && rec.mostKingMinutes.minutes > 0) {
-      reignTimeRecordEl.textContent = `Rekord: ${formatMinutes(rec.mostKingMinutes.minutes)} (${rec.mostKingMinutes.username})`;
+      reignTimeRecordEl.textContent = `Record: ${formatMinutes(rec.mostKingMinutes.minutes)} (${rec.mostKingMinutes.username})`;
     } else {
-      reignTimeRecordEl.textContent = 'Inget rekord ännu';
+      reignTimeRecordEl.textContent = 'No record yet';
     }
   }
 
@@ -1146,9 +1154,9 @@
   // SPELSTATE — driver rendering
   // ─────────────────────────────────────────────────────────────
   socket.on('state', (state) => {
-    challengerNameEl.textContent = state.challenger ? state.challenger.username : 'Väntar …';
+    challengerNameEl.textContent = state.challenger ? state.challenger.username : 'Waiting …';
     challengerScoreEl.textContent = state.challenger ? state.challenger.points : 'Love';
-    kingNameEl.textContent = state.king ? state.king.username : 'Väntar …';
+    kingNameEl.textContent = state.king ? state.king.username : 'Waiting …';
     kingScoreEl.textContent = state.king ? state.king.points : 'Love';
 
     challengerServeDotEl.classList.toggle('is-active', state.phase === 'playing' && state.server === 'challenger');
@@ -1176,7 +1184,7 @@
     if (queue.length === 0) {
       const li = document.createElement('li');
       li.className = 'queue-empty';
-      li.textContent = 'Ingen i kö just nu';
+      li.textContent = 'The queue is empty';
       queueListEl.appendChild(li);
       return;
     }
@@ -1199,11 +1207,11 @@
     if (state.phase === 'playing' && state.rally === 'awaiting-serve') {
       const iAmServer = (state.server === 'king' && myRole === 'king') || (state.server === 'challenger' && myRole === 'challenger');
       if (iAmServer) {
-        serveHintEl.textContent = '⎵ TRYCK MELLANSLAG FÖR ATT SERVA';
+        serveHintEl.textContent = '⎵ PRESS SPACE TO SERVE';
         serveHintEl.classList.add('is-visible', 'is-me');
       } else {
         const serverName = state.server === 'king' ? (state.king ? state.king.username : '') : (state.challenger ? state.challenger.username : '');
-        serveHintEl.textContent = `Väntar på serve från ${serverName} …`;
+        serveHintEl.textContent = `Waiting for ${serverName} to serve …`;
         serveHintEl.classList.add('is-visible');
         serveHintEl.classList.remove('is-me');
       }
@@ -1218,21 +1226,21 @@
 
     if (state.phase === 'waiting') {
       overlayEl.classList.add('is-visible');
-      appendOverlayLines(state.king && !state.challenger ? 'VÄNTAR PÅ UTMANARE' : 'VÄNTAR PÅ SPELARE', 'Fler kan gå med i kön när som helst');
+      appendOverlayLines(state.king && !state.challenger ? 'WAITING FOR A CHALLENGER' : 'WAITING FOR PLAYERS', 'Players can join the queue at any time');
     } else if (state.phase === 'pregame') {
       overlayEl.classList.add('is-visible');
       const servingName = state.server === 'king' ? (state.king ? state.king.username : '') : (state.challenger ? state.challenger.username : '');
       const tossLine = lastCoinToss && lastCoinToss.court === state.court
-        ? `Slantsingling: ${lastCoinToss.coinToss.result.toUpperCase()}`
-        : 'Slantsingling avgjord';
+        ? `Coin toss: ${lastCoinToss.coinToss.result.toUpperCase()}`
+        : 'Coin toss complete';
       const main = document.createElement('div');
-      main.textContent = String(state.pregameCountdown > 0 ? state.pregameCountdown : 'KÖR!');
+      main.textContent = String(state.pregameCountdown > 0 ? state.pregameCountdown : 'GO!');
       const sub1 = document.createElement('div');
       sub1.className = 'overlay-sub';
-      sub1.textContent = `${tossLine} — ${servingName} servar först`;
+      sub1.textContent = `${tossLine} — ${servingName} serves first`;
       const sub2 = document.createElement('div');
       sub2.className = 'overlay-sub overlay-sub-small';
-      sub2.textContent = 'Ni är låsta tills nedräkningen når noll';
+      sub2.textContent = 'Movement unlocks when the countdown reaches zero';
       overlayEl.appendChild(main);
       overlayEl.appendChild(sub1);
       overlayEl.appendChild(sub2);
@@ -1240,7 +1248,7 @@
       overlayEl.classList.add('is-visible');
       const kingWon = state.king && state.challenger && state.king.games > state.challenger.games;
       const winnerName = state.king && state.challenger ? (kingWon ? state.king.username : state.challenger.username) : '';
-      appendOverlayLines('MATCH SLUT', winnerName ? `${winnerName} vinner matchen!` : '');
+      appendOverlayLines('MATCH OVER', winnerName ? `${winnerName} wins the match!` : '');
     }
   }
 
@@ -1287,28 +1295,7 @@
 
   function renderCourt(state) {
     ctx2d.clearRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-
-    // Bakgrund
-    ctx2d.fillStyle = '#05070d';
-    ctx2d.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-
-    // Sidolinjer (hög kontrast, hackiga pixel-kanter — inga rundade hörn)
-    const marginX = toDisplayX(20);
-    const marginY = toDisplayY(20);
-    ctx2d.strokeStyle = '#e8ecff';
-    ctx2d.lineWidth = 2;
-    ctx2d.strokeRect(marginX, marginY, DISPLAY_WIDTH - marginX * 2, DISPLAY_HEIGHT - marginY * 2);
-
-    // Mittnät (streckad linje i banans accentfärg)
-    ctx2d.save();
-    ctx2d.strokeStyle = state.accent || '#2f8dff';
-    ctx2d.lineWidth = 3;
-    ctx2d.setLineDash([10, 8]);
-    ctx2d.beginPath();
-    ctx2d.moveTo(marginX, DISPLAY_HEIGHT / 2);
-    ctx2d.lineTo(DISPLAY_WIDTH - marginX, DISPLAY_HEIGHT / 2);
-    ctx2d.stroke();
-    ctx2d.restore();
+    drawTennisCourt(state);
 
     if (state.challenger) {
       const challengerX = myRole === 'challenger' ? myPaddleX : state.challenger.x;
@@ -1324,6 +1311,79 @@
     if (state.phase === 'playing' && (state.rally === 'live' || state.rally === 'awaiting-serve')) {
       drawBall(state.ball.x, state.ball.y, state.accent);
     }
+  }
+
+  function drawTennisCourt(state) {
+    const meta = COURTS_META[state.court] || COURTS_META.melbourne;
+    const left = toDisplayX(36);
+    const right = DISPLAY_WIDTH - left;
+    const top = toDisplayY(18);
+    const bottom = DISPLAY_HEIGHT - top;
+    const singlesLeft = toDisplayX(132);
+    const singlesRight = DISPLAY_WIDTH - singlesLeft;
+    const nearServiceLine = toDisplayY(196);
+    const farServiceLine = DISPLAY_HEIGHT - nearServiceLine;
+    const centreX = DISPLAY_WIDTH / 2;
+    const netY = DISPLAY_HEIGHT / 2;
+
+    ctx2d.fillStyle = meta.surround;
+    ctx2d.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    ctx2d.fillStyle = meta.court;
+    ctx2d.fillRect(left, top, right - left, bottom - top);
+
+    if (state.court === 'london') {
+      ctx2d.save();
+      for (let index = 0; index < 10; index += 1) {
+        ctx2d.fillStyle = index % 2 === 0 ? 'rgba(255,255,220,0.035)' : 'rgba(0,35,12,0.045)';
+        const stripeY = top + ((bottom - top) / 10) * index;
+        ctx2d.fillRect(left, stripeY, right - left, (bottom - top) / 10);
+      }
+      ctx2d.restore();
+    } else if (state.court === 'paris') {
+      ctx2d.save();
+      ctx2d.fillStyle = 'rgba(255,236,210,0.12)';
+      for (let index = 0; index < 90; index += 1) {
+        const x = left + ((index * 47) % Math.floor(right - left));
+        const y = top + ((index * 83) % Math.floor(bottom - top));
+        ctx2d.fillRect(x, y, 1, 1);
+      }
+      ctx2d.restore();
+    }
+
+    ctx2d.save();
+    ctx2d.strokeStyle = meta.line;
+    ctx2d.fillStyle = meta.line;
+    ctx2d.lineWidth = 2;
+
+    // Doubles court, singles sidelines and service boxes.
+    ctx2d.strokeRect(left, top, right - left, bottom - top);
+    drawCourtLine(singlesLeft, top, singlesLeft, bottom);
+    drawCourtLine(singlesRight, top, singlesRight, bottom);
+    drawCourtLine(singlesLeft, nearServiceLine, singlesRight, nearServiceLine);
+    drawCourtLine(singlesLeft, farServiceLine, singlesRight, farServiceLine);
+    drawCourtLine(centreX, nearServiceLine, centreX, farServiceLine);
+
+    // Baseline centre marks.
+    ctx2d.fillRect(centreX - 1, top, 2, 9);
+    ctx2d.fillRect(centreX - 1, bottom - 9, 2, 9);
+    ctx2d.restore();
+
+    // The net sits above the painted lines and reads clearly on every surface.
+    ctx2d.save();
+    ctx2d.strokeStyle = 'rgba(7, 12, 22, 0.72)';
+    ctx2d.lineWidth = 6;
+    drawCourtLine(left - 4, netY, right + 4, netY);
+    ctx2d.strokeStyle = meta.line;
+    ctx2d.lineWidth = 2;
+    drawCourtLine(left - 4, netY, right + 4, netY);
+    ctx2d.restore();
+  }
+
+  function drawCourtLine(x1, y1, x2, y2) {
+    ctx2d.beginPath();
+    ctx2d.moveTo(Math.round(x1), Math.round(y1));
+    ctx2d.lineTo(Math.round(x2), Math.round(y2));
+    ctx2d.stroke();
   }
 
   function isBallInSwingWindow(state, role) {

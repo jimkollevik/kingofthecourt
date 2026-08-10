@@ -101,10 +101,10 @@ const LATE_HIT_DISTANCE = 24; // tillåter en kort reaktion precis efter att bol
 
 // De fyra banorna. Nyckeln används som Socket.io-rumsnamn.
 const COURTS = {
-  melbourne: { name: 'Melbourne', accent: '#2f8dff' }, // Blå
-  paris: { name: 'Paris', accent: '#ff8c1a' }, // Orange
-  london: { name: 'London', accent: '#33d17a' }, // Grön
-  newyork: { name: 'New York', accent: '#2438b0' }, // Mörkblå
+  melbourne: { name: 'Melbourne', accent: '#65d7ff' },
+  paris: { name: 'Paris', accent: '#ffe06b' },
+  london: { name: 'London', accent: '#f7f4e8' },
+  newyork: { name: 'New York', accent: '#ffcf56' },
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -576,7 +576,7 @@ function startPregame(courtKey) {
     challenger: room.challenger.username,
     server: room.server,
     coinToss: {
-      result: isHeads ? 'krona' : 'klave',
+      result: isHeads ? 'heads' : 'tails',
       servingRole: room.server,
       servingUsername: room[room.server].username,
     },
@@ -890,13 +890,13 @@ io.on('connection', (socket) => {
     const { username, court } = payload || {};
 
     if (!COURTS[court]) {
-      socket.emit('errorMsg', 'Ogiltig bana vald.');
+      socket.emit('errorMsg', 'Invalid court selection.');
       return;
     }
 
     const cleanUsername = sanitizeUsername(username);
     if (!cleanUsername) {
-      socket.emit('errorMsg', 'Ange ett användarnamn mellan 2 och 16 tecken.');
+      socket.emit('errorMsg', 'Enter a player name between 2 and 16 characters.');
       return;
     }
 
