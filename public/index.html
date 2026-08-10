@@ -390,18 +390,18 @@
   .overlay-message .overlay-sub-small { font-size: clamp(9px, 2.4vw, 11px); color: var(--text-dim); }
 
   .serve-hint {
-    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    align-self: center; max-width: calc(100% - 24px); margin: 10px auto 0;
     font-family: var(--font-body); font-size: 11px; color: var(--text-fog);
     background: rgba(19, 24, 41, 0.85); border: 1px solid var(--line-grid);
     padding: 7px 12px; border-radius: 20px;
-    opacity: 0; pointer-events: none; transition: opacity 0.15s; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity 0.15s; text-align: center;
   }
   .serve-hint.is-visible { opacity: 1; }
   .serve-hint.is-me {
     color: #10131f; background: var(--neon-amber); border-color: var(--neon-amber);
     font-family: var(--font-display); font-size: 9px; animation: pulse-hint 1s ease-in-out infinite;
   }
-  @keyframes pulse-hint { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } }
+  @keyframes pulse-hint { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 
   .toast-container {
     position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
@@ -538,7 +538,6 @@
       <div id="canvas-wrap" class="canvas-wrap">
         <canvas id="game-canvas" width="400" height="600"></canvas>
         <div id="overlay-message" class="overlay-message"></div>
-        <div id="serve-hint" class="serve-hint"></div>
         <div id="toast-container" class="toast-container"></div>
       </div>
 
@@ -549,6 +548,7 @@
         <span id="king-score" class="hud-score">Love</span>
       </div>
 
+      <div id="serve-hint" class="serve-hint"></div>
       <p class="controls-hint">↔ Hold to move &nbsp;·&nbsp; ⎵ Space for every serve and return &nbsp;·&nbsp; perfect timing hits a power shot</p>
     </div>
 
@@ -832,6 +832,7 @@
   let hasAuthoritativePaddleX = false;
   let paddleMoveSequence = 0;
   let acknowledgedMoveSequence = 0;
+  let servePositionVersion = -1;
   let currentMoveDirection = 0;
   let pointerTargetX = null;
   let authoritativePaddleX = SERVER_WIDTH / 2;
@@ -925,6 +926,7 @@
     myCourt = payload.court;
     if (roleChanged) {
       hasAuthoritativePaddleX = false;
+      servePositionVersion = -1;
       currentMoveDirection = 0;
       pointerTargetX = null;
     }
@@ -1172,7 +1174,18 @@
     renderQueue(state.queue);
 
     const ownPlayerState = myRole === 'king' ? state.king : myRole === 'challenger' ? state.challenger : null;
-    if (ownPlayerState) reconcileOwnPaddle(ownPlayerState);
+    if (ownPlayerState) {
+      const servePositionChanged = state.servePositionVersion !== servePositionVersion;
+      if (servePositionChanged) {
+        myPaddleX = ownPlayerState.x;
+        authoritativePaddleX = ownPlayerState.x;
+        acknowledgedMoveSequence = ownPlayerState.moveSequence || 0;
+        hasAuthoritativePaddleX = true;
+      } else {
+        reconcileOwnPaddle(ownPlayerState);
+      }
+      servePositionVersion = state.servePositionVersion;
+    }
 
     updateOverlay(state);
     updateServeHint(state);
@@ -1242,13 +1255,14 @@
 
   function updateServeHint(state) {
     if (state.phase === 'playing' && state.rally === 'awaiting-serve') {
+      const courtSide = state.serveSide === 'ad' ? 'AD COURT' : 'DEUCE COURT';
       const iAmServer = (state.server === 'king' && myRole === 'king') || (state.server === 'challenger' && myRole === 'challenger');
       if (iAmServer) {
-        serveHintEl.textContent = '⎵ PRESS SPACE TO SERVE';
+        serveHintEl.textContent = `⎵ PRESS SPACE TO SERVE · ${courtSide}`;
         serveHintEl.classList.add('is-visible', 'is-me');
       } else {
         const serverName = state.server === 'king' ? (state.king ? state.king.username : '') : (state.challenger ? state.challenger.username : '');
-        serveHintEl.textContent = `Waiting for ${serverName} to serve …`;
+        serveHintEl.textContent = `Waiting for ${serverName} to serve … · ${courtSide}`;
         serveHintEl.classList.add('is-visible');
         serveHintEl.classList.remove('is-me');
       }
@@ -1567,6 +1581,7 @@
     hasAuthoritativePaddleX = false;
     paddleMoveSequence = 0;
     acknowledgedMoveSequence = 0;
+    servePositionVersion = -1;
     currentMoveDirection = 0;
     pointerTargetX = null;
     heldKeys.left = false;
