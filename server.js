@@ -71,6 +71,7 @@ const PADDLE_MARGIN = 24;
 const BALL_RADIUS = 8;
 const TICK_RATE_MS = 1000 / 30; // 30 uppdateringar/sekund till klienterna
 const PADDLE_SPEED = 840; // server-enheter/sekund; samma värde används för klientprediktion
+const SERVE_REPOSITION_SPEED = 520; // mjuk, serverstyrd omplacering mellan poängen
 const SERVE_POSITION_LEFT_X = CANVAS_WIDTH * 0.32;
 const SERVE_POSITION_RIGHT_X = CANVAS_WIDTH * 0.68;
 
@@ -326,6 +327,7 @@ for (const courtKey of Object.keys(COURTS)) {
     rally: null, // 'awaiting-serve' | 'live' | 'point-pause' | 'finished'
     server: null, // 'king' | 'challenger' — vem som servar innevarande game
     servePositionVersion: 0, // ökas när spelarna flyttas till nästa diagonala serveuppställning
+    servePositionTargets: null,
     pregameCountdown: 0,
     matchSecondsRemaining: 0,
     serveDeadline: 0,
@@ -386,8 +388,8 @@ function getServeSide(room) {
   return (room.king.points + room.challenger.points) % 2 === 0 ? 'deuce' : 'ad';
 }
 
-/** Placerar servare och mottagare diagonalt enligt tennisens deuce/ad-sidor. */
-function positionPlayersForServe(room) {
+/** Förbereder servare och mottagare diagonalt enligt tennisens deuce/ad-sidor. */
+function positionPlayersForServe(room, immediate = false) {
   const serveSide = getServeSide(room);
   const serverIsKing = room.server === 'king';
   const serverX = serveSide === 'deuce'
@@ -395,9 +397,43 @@ function positionPlayersForServe(room) {
     : (serverIsKing ? SERVE_POSITION_LEFT_X : SERVE_POSITION_RIGHT_X);
   const receiverX = CANVAS_WIDTH - serverX;
 
-  room[room.server].x = serverX;
-  room[otherRole(room.server)].x = receiverX;
+  room.king.moveDirection = 0;
+  room.challenger.moveDirection = 0;
+  room.servePositionTargets = {
+    [room.server]: serverX,
+    [otherRole(room.server)]: receiverX,
+  };
+  if (immediate) {
+    room.king.x = room.servePositionTargets.king;
+    room.challenger.x = room.servePositionTargets.challenger;
+    room.servePositionTargets = null;
+  }
   room.servePositionVersion += 1;
+}
+
+function movePlayersTowardServePositions(room, deltaSeconds) {
+  if (!room.servePositionTargets) return;
+  let complete = true;
+  for (const role of ['king', 'challenger']) {
+    const player = room[role];
+    const targetX = room.servePositionTargets[role];
+    const distance = targetX - player.x;
+    const step = SERVE_REPOSITION_SPEED * deltaSeconds;
+    if (Math.abs(distance) <= step) {
+      player.x = targetX;
+    } else {
+      player.x += Math.sign(distance) * step;
+      complete = false;
+    }
+  }
+  if (complete) room.servePositionTargets = null;
+}
+
+function finishServeReposition(room) {
+  if (!room.servePositionTargets) return;
+  room.king.x = room.servePositionTargets.king;
+  room.challenger.x = room.servePositionTargets.challenger;
+  room.servePositionTargets = null;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -624,7 +660,7 @@ function beginMatch(courtKey) {
   room.phase = 'playing';
   room.king.moveDirection = 0;
   room.challenger.moveDirection = 0;
-  positionPlayersForServe(room);
+  positionPlayersForServe(room, true);
   positionBallForServe(room);
   broadcastState(courtKey);
 
@@ -724,6 +760,7 @@ function registerPoint(courtKey, scorerRole) {
   room.timer = setTimeout(() => {
     room.timer = null;
     if (room.phase === 'playing') {
+      finishServeReposition(room);
       positionBallForServe(room);
       broadcastState(courtKey);
     }
@@ -944,7 +981,7 @@ io.on('connection', (socket) => {
     const record = players.get(socket.id);
     if (!record) return;
     const room = rooms[record.court];
-    if (!room || room.phase !== 'playing') return;
+    if (!room || room.phase !== 'playing' || room.rally === 'point-pause') return;
 
     const direction = Number(payload && payload.direction);
     const sequence = Number(payload && payload.sequence);
@@ -1014,6 +1051,10 @@ setInterval(() => {
   for (const courtKey of Object.keys(rooms)) {
     const room = rooms[courtKey];
     if (room.phase !== 'playing') continue;
+
+    if (room.rally === 'point-pause') {
+      movePlayersTowardServePositions(room, deltaSeconds);
+    }
 
     for (const playerObj of [room.king, room.challenger]) {
       if (!playerObj || !playerObj.moveDirection) continue;
