@@ -821,6 +821,8 @@
   let myCourt = null;
   let hasJoinedGameScreen = false;
   let myPaddleX = SERVER_WIDTH / 2;
+  let hasAuthoritativePaddleX = false;
+  let paddleMoveSequence = 0;
   let lastCoinToss = null;
   let recordsStore = {}; // court -> { longestKingStreak, mostKingMinutes } — cache för modalen
   let latestOwnCourtState = null; // senaste 'state' för banan man själv är i, för att kunna re-rendera reign-panelen
@@ -1148,8 +1150,8 @@
     spectatorCountEl.textContent = state.spectatorCount;
     renderQueue(state.queue);
 
-    if (myRole === 'king' && state.king) myPaddleX = state.king.x;
-    if (myRole === 'challenger' && state.challenger) myPaddleX = state.challenger.x;
+    const ownPlayerState = myRole === 'king' ? state.king : myRole === 'challenger' ? state.challenger : null;
+    if (ownPlayerState) reconcileOwnPaddle(ownPlayerState.x);
 
     updateOverlay(state);
     updateServeHint(state);
@@ -1299,10 +1301,12 @@
     ctx2d.restore();
 
     if (state.challenger) {
-      drawPaddle(state.challenger.x, PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'challenger' && state.rally === 'awaiting-serve');
+      const challengerX = myRole === 'challenger' ? myPaddleX : state.challenger.x;
+      drawPaddle(challengerX, PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'challenger' && state.rally === 'awaiting-serve');
     }
     if (state.king) {
-      drawPaddle(state.king.x, SERVER_HEIGHT - PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'king' && state.rally === 'awaiting-serve');
+      const kingX = myRole === 'king' ? myPaddleX : state.king.x;
+      drawPaddle(kingX, SERVER_HEIGHT - PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'king' && state.rally === 'awaiting-serve');
     }
 
     if (state.phase === 'playing' && (state.rally === 'live' || state.rally === 'awaiting-serve')) {
@@ -1337,6 +1341,23 @@
   // KONTROLLER — piltangenter för rörelse, Space för att slå/serva
   // ─────────────────────────────────────────────────────────────
   function amIActivePlayer() { return myRole === 'king' || myRole === 'challenger'; }
+  function canMovePaddle() {
+    return amIActivePlayer() && latestOwnCourtState && latestOwnCourtState.phase === 'playing';
+  }
+
+  function reconcileOwnPaddle(serverX) {
+    if (!hasAuthoritativePaddleX) {
+      myPaddleX = serverX;
+      hasAuthoritativePaddleX = true;
+      return;
+    }
+
+    // Under lokal input renderar vi klientens förutsägelse. Servern är fortfarande
+    // auktoritativ för kollisioner och drar mjukt ihop eventuell avvikelse efteråt.
+    if (heldKeys.left || heldKeys.right) return;
+    const error = serverX - myPaddleX;
+    myPaddleX = Math.abs(error) > 140 ? serverX : myPaddleX + error * 0.28;
+  }
 
   let lastEmitTime = 0;
   function sendPaddleX(x) {
@@ -1344,7 +1365,8 @@
     const now = performance.now();
     if (now - lastEmitTime < 20) return;
     lastEmitTime = now;
-    socket.emit('paddleMove', { x: myPaddleX });
+    paddleMoveSequence += 1;
+    socket.emit('paddleMove', { x: myPaddleX, sequence: paddleMoveSequence });
   }
 
   window.addEventListener('keydown', (event) => {
@@ -1359,13 +1381,20 @@
     if (event.key === 'ArrowLeft') heldKeys.left = false;
     if (event.key === 'ArrowRight') heldKeys.right = false;
   });
+  window.addEventListener('blur', () => {
+    heldKeys.left = false;
+    heldKeys.right = false;
+  });
 
-  const KEYBOARD_STEP_SRV = 12; // rörelse per bildruta i serverns 800-breda koordinatsystem
-  function keyboardLoop() {
-    if (amIActivePlayer() && (heldKeys.left || heldKeys.right)) {
+  const KEYBOARD_SPEED_SRV = 840; // server-enheter/sekund, oberoende av skärmens uppdateringsfrekvens
+  let previousKeyboardFrame = performance.now();
+  function keyboardLoop(now) {
+    const deltaSeconds = Math.min((now - previousKeyboardFrame) / 1000, 0.05);
+    previousKeyboardFrame = now;
+    if (canMovePaddle() && heldKeys.left !== heldKeys.right) {
       let nextX = myPaddleX;
-      if (heldKeys.left) nextX -= KEYBOARD_STEP_SRV;
-      if (heldKeys.right) nextX += KEYBOARD_STEP_SRV;
+      if (heldKeys.left) nextX -= KEYBOARD_SPEED_SRV * deltaSeconds;
+      if (heldKeys.right) nextX += KEYBOARD_SPEED_SRV * deltaSeconds;
       sendPaddleX(nextX);
     }
     requestAnimationFrame(keyboardLoop);
@@ -1379,11 +1408,11 @@
     return (relative * DISPLAY_WIDTH) / SCALE_X;
   }
   canvas.addEventListener('mousemove', (event) => {
-    if (!amIActivePlayer()) return;
+    if (!canMovePaddle()) return;
     sendPaddleX(canvasXFromClientX(event.clientX));
   });
   canvas.addEventListener('touchmove', (event) => {
-    if (!amIActivePlayer()) return;
+    if (!canMovePaddle()) return;
     event.preventDefault();
     const touch = event.touches[0];
     if (touch) sendPaddleX(canvasXFromClientX(touch.clientX));
@@ -1397,6 +1426,10 @@
     hasJoinedGameScreen = false;
     myRole = 'spectator';
     myCourt = null;
+    hasAuthoritativePaddleX = false;
+    paddleMoveSequence = 0;
+    heldKeys.left = false;
+    heldKeys.right = false;
     lastCoinToss = null;
     latestOwnCourtState = null;
     gameScreen.classList.remove('is-active');
