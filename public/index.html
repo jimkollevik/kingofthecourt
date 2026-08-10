@@ -541,7 +541,7 @@
         <span id="king-score" class="hud-score">Love</span>
       </div>
 
-      <p class="controls-hint">↔ Piltangenter för att röra dig &nbsp;·&nbsp; ⎵ Mellanslag för att serva/slå &nbsp;·&nbsp; träffa tajmat för hårt slag</p>
+      <p class="controls-hint">↔ Håll inne för att röra dig &nbsp;·&nbsp; ⎵ Mellanslag krävs för varje serve och retur &nbsp;·&nbsp; perfekt tajming ger hårt slag</p>
     </div>
 
   </div>
@@ -671,7 +671,7 @@
         }
       },
 
-      // 2) Vanlig bollträff (lös/automatisk retur)
+      // 2) Vanlig, aktiv bollträff
       playSoftHit() {
         ensureContext();
         tone({ freq: 220, duration: 0.05, type: 'square', volume: 0.13 });
@@ -823,6 +823,10 @@
   let myPaddleX = SERVER_WIDTH / 2;
   let hasAuthoritativePaddleX = false;
   let paddleMoveSequence = 0;
+  let acknowledgedMoveSequence = 0;
+  let currentMoveDirection = 0;
+  let pointerTargetX = null;
+  let authoritativePaddleX = SERVER_WIDTH / 2;
   let lastCoinToss = null;
   let recordsStore = {}; // court -> { longestKingStreak, mostKingMinutes } — cache för modalen
   let latestOwnCourtState = null; // senaste 'state' för banan man själv är i, för att kunna re-rendera reign-panelen
@@ -905,8 +909,14 @@
   // ROLL-TILLDELNING
   // ─────────────────────────────────────────────────────────────
   socket.on('role', (payload) => {
+    const roleChanged = myRole !== payload.role;
     myRole = payload.role;
     myCourt = payload.court;
+    if (roleChanged) {
+      hasAuthoritativePaddleX = false;
+      currentMoveDirection = 0;
+      pointerTargetX = null;
+    }
 
     if (!hasJoinedGameScreen) {
       startScreen.classList.remove('is-active');
@@ -1151,7 +1161,7 @@
     renderQueue(state.queue);
 
     const ownPlayerState = myRole === 'king' ? state.king : myRole === 'challenger' ? state.challenger : null;
-    if (ownPlayerState) reconcileOwnPaddle(ownPlayerState.x);
+    if (ownPlayerState) reconcileOwnPaddle(ownPlayerState);
 
     updateOverlay(state);
     updateServeHint(state);
@@ -1302,11 +1312,13 @@
 
     if (state.challenger) {
       const challengerX = myRole === 'challenger' ? myPaddleX : state.challenger.x;
-      drawPaddle(challengerX, PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'challenger' && state.rally === 'awaiting-serve');
+      const challengerReady = myRole === 'challenger' && isBallInSwingWindow(state, 'challenger');
+      drawPaddle(challengerX, PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'challenger' && state.rally === 'awaiting-serve', challengerReady);
     }
     if (state.king) {
       const kingX = myRole === 'king' ? myPaddleX : state.king.x;
-      drawPaddle(kingX, SERVER_HEIGHT - PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'king' && state.rally === 'awaiting-serve');
+      const kingReady = myRole === 'king' && isBallInSwingWindow(state, 'king');
+      drawPaddle(kingX, SERVER_HEIGHT - PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'king' && state.rally === 'awaiting-serve', kingReady);
     }
 
     if (state.phase === 'playing' && (state.rally === 'live' || state.rally === 'awaiting-serve')) {
@@ -1314,13 +1326,23 @@
     }
   }
 
-  function drawPaddle(serverX, serverY, accent, isServing) {
+  function isBallInSwingWindow(state, role) {
+    if (state.rally !== 'live' || !state.ball || !state.ball.vy) return false;
+    const movingTowardPlayer = role === 'king' ? state.ball.vy > 0 : state.ball.vy < 0;
+    if (!movingTowardPlayer) return false;
+    const paddleY = role === 'king' ? SERVER_HEIGHT - PADDLE_MARGIN_SRV : PADDLE_MARGIN_SRV;
+    const distance = role === 'king' ? paddleY - state.ball.y : state.ball.y - paddleY;
+    const millisecondsToContact = Math.max(0, distance) / Math.abs(state.ball.vy) * (1000 / 30);
+    return distance >= -24 && millisecondsToContact <= 320;
+  }
+
+  function drawPaddle(serverX, serverY, accent, isServing, showTimingCue) {
     const x = toDisplayX(serverX) - PADDLE_W / 2;
     const y = toDisplayY(serverY) - PADDLE_H / 2;
     ctx2d.save();
-    ctx2d.fillStyle = accent || '#2f8dff';
-    ctx2d.shadowColor = accent || '#2f8dff';
-    ctx2d.shadowBlur = isServing ? 20 : 10;
+    ctx2d.fillStyle = showTimingCue ? '#f2f5ff' : (accent || '#2f8dff');
+    ctx2d.shadowColor = showTimingCue ? '#ffcf56' : (accent || '#2f8dff');
+    ctx2d.shadowBlur = showTimingCue ? 24 : (isServing ? 20 : 10);
     // Blockig, hård-kantad rektangel — inga rundade hörn för äkta pixel-look
     ctx2d.fillRect(Math.round(x), Math.round(y), Math.round(PADDLE_W), Math.round(PADDLE_H));
     ctx2d.restore();
@@ -1345,33 +1367,25 @@
     return amIActivePlayer() && latestOwnCourtState && latestOwnCourtState.phase === 'playing';
   }
 
-  function reconcileOwnPaddle(serverX) {
+  function reconcileOwnPaddle(playerState) {
+    authoritativePaddleX = playerState.x;
+    acknowledgedMoveSequence = playerState.moveSequence || 0;
     if (!hasAuthoritativePaddleX) {
-      myPaddleX = serverX;
+      myPaddleX = playerState.x;
       hasAuthoritativePaddleX = true;
-      return;
     }
-
-    // Under lokal input renderar vi klientens förutsägelse. Servern är fortfarande
-    // auktoritativ för kollisioner och drar mjukt ihop eventuell avvikelse efteråt.
-    if (heldKeys.left || heldKeys.right) return;
-    const error = serverX - myPaddleX;
-    myPaddleX = Math.abs(error) > 140 ? serverX : myPaddleX + error * 0.28;
   }
 
-  let lastEmitTime = 0;
-  function sendPaddleX(x) {
-    myPaddleX = Math.max(PADDLE_WIDTH_SRV / 2, Math.min(SERVER_WIDTH - PADDLE_WIDTH_SRV / 2, x));
-    const now = performance.now();
-    if (now - lastEmitTime < 20) return;
-    lastEmitTime = now;
+  function sendPaddleDirection(direction) {
+    if (direction === currentMoveDirection) return;
+    currentMoveDirection = direction;
     paddleMoveSequence += 1;
-    socket.emit('paddleMove', { x: myPaddleX, sequence: paddleMoveSequence });
+    socket.emit('paddleInput', { direction, sequence: paddleMoveSequence });
   }
 
   window.addEventListener('keydown', (event) => {
-    if (event.key === 'ArrowLeft') { heldKeys.left = true; event.preventDefault(); }
-    if (event.key === 'ArrowRight') { heldKeys.right = true; event.preventDefault(); }
+    if (event.key === 'ArrowLeft') { heldKeys.left = true; pointerTargetX = null; event.preventDefault(); }
+    if (event.key === 'ArrowRight') { heldKeys.right = true; pointerTargetX = null; event.preventDefault(); }
     if (event.code === 'Space' && !event.repeat) {
       event.preventDefault();
       if (amIActivePlayer()) socket.emit('swing');
@@ -1384,6 +1398,8 @@
   window.addEventListener('blur', () => {
     heldKeys.left = false;
     heldKeys.right = false;
+    pointerTargetX = null;
+    sendPaddleDirection(0);
   });
 
   const KEYBOARD_SPEED_SRV = 840; // server-enheter/sekund, oberoende av skärmens uppdateringsfrekvens
@@ -1391,11 +1407,35 @@
   function keyboardLoop(now) {
     const deltaSeconds = Math.min((now - previousKeyboardFrame) / 1000, 0.05);
     previousKeyboardFrame = now;
-    if (canMovePaddle() && heldKeys.left !== heldKeys.right) {
-      let nextX = myPaddleX;
-      if (heldKeys.left) nextX -= KEYBOARD_SPEED_SRV * deltaSeconds;
-      if (heldKeys.right) nextX += KEYBOARD_SPEED_SRV * deltaSeconds;
-      sendPaddleX(nextX);
+
+    let desiredDirection = 0;
+    if (canMovePaddle()) {
+      if (heldKeys.left !== heldKeys.right) {
+        desiredDirection = heldKeys.left ? -1 : 1;
+      } else if (pointerTargetX !== null) {
+        const pointerError = pointerTargetX - myPaddleX;
+        if (Math.abs(pointerError) > 3) desiredDirection = pointerError < 0 ? -1 : 1;
+        else pointerTargetX = null;
+      }
+
+      sendPaddleDirection(desiredDirection);
+      myPaddleX = Math.max(
+        PADDLE_WIDTH_SRV / 2,
+        Math.min(SERVER_WIDTH - PADDLE_WIDTH_SRV / 2, myPaddleX + desiredDirection * KEYBOARD_SPEED_SRV * deltaSeconds)
+      );
+
+      // Korrigera först när servern har kvitterat vår senaste riktningsändring.
+      // Korrigeringen är kontinuerlig och kan därför inte ge bakåt-framåt-hopp.
+      if (currentMoveDirection === 0 && acknowledgedMoveSequence >= paddleMoveSequence) {
+        const correction = authoritativePaddleX - myPaddleX;
+        myPaddleX += correction * Math.min(1, deltaSeconds * 7);
+      }
+    } else {
+      sendPaddleDirection(0);
+    }
+
+    if (latestOwnCourtState) {
+      renderCourt(latestOwnCourtState);
     }
     requestAnimationFrame(keyboardLoop);
   }
@@ -1409,14 +1449,15 @@
   }
   canvas.addEventListener('mousemove', (event) => {
     if (!canMovePaddle()) return;
-    sendPaddleX(canvasXFromClientX(event.clientX));
+    pointerTargetX = canvasXFromClientX(event.clientX);
   });
   canvas.addEventListener('touchmove', (event) => {
     if (!canMovePaddle()) return;
     event.preventDefault();
     const touch = event.touches[0];
-    if (touch) sendPaddleX(canvasXFromClientX(touch.clientX));
+    if (touch) pointerTargetX = canvasXFromClientX(touch.clientX);
   }, { passive: false });
+  canvas.addEventListener('touchend', () => { pointerTargetX = null; });
 
   // ─────────────────────────────────────────────────────────────
   // LÄMNA BANA
@@ -1428,6 +1469,9 @@
     myCourt = null;
     hasAuthoritativePaddleX = false;
     paddleMoveSequence = 0;
+    acknowledgedMoveSequence = 0;
+    currentMoveDirection = 0;
+    pointerTargetX = null;
     heldKeys.left = false;
     heldKeys.right = false;
     lastCoinToss = null;

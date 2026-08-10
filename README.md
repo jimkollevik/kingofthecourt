@@ -17,9 +17,10 @@ matchen live i åskådarläge tills det är deras tur.
   med slantsingling (krona/klave) som avgör vem som servar först. En låst
   30-sekunders nedräkning visas för alla i rummet innan den 5 minuter långa
   match-timern startar.
-- **Styrning:** piltangenter (↔) flyttar paddeln, Mellanslag servar/slår.
-  Ett tidsfönster på 160 ms runt bollkontakt avgör om slaget blir ett hårt
-  slag (snabbare, vassare vinkel) eller en lös automatisk retur.
+- **Styrning:** håll inne piltangenterna (↔) för att flytta paddeln.
+  Mellanslag krävs för varje serve och retur — ingen automatisk retur sker.
+  Ett generöst input-bufferfönster på 300 ms gör vanliga returer förlåtande,
+  medan de sista 125 ms närmast bollkontakt ger ett hårt slag.
 - **Riktig tennis-poängräkning:** Love/15/30/40/Deuce/Advantage/Game, med
   serverväxling varje nytt game.
 - **Matchslut:** vid uppnått games-mål eller när 5-minuterstimern tar slut

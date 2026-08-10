@@ -70,8 +70,7 @@ const PADDLE_HEIGHT = 14;
 const PADDLE_MARGIN = 24;
 const BALL_RADIUS = 8;
 const TICK_RATE_MS = 1000 / 30; // 30 uppdateringar/sekund till klienterna
-const MAX_PADDLE_SPEED = 960; // server-enheter/sekund; klienten kör något långsammare
-const PADDLE_MOVE_GRACE = 8; // liten nätverksmarginal utan att tillåta teleportering
+const PADDLE_SPEED = 840; // server-enheter/sekund; samma värde används för klientprediktion
 
 // Matchflöde
 const PREGAME_COUNTDOWN_SECONDS = 30;
@@ -96,7 +95,9 @@ const MAX_BOUNCE_ANGLE_HARD = Math.PI / 2.6; // ~69°, vassare vinkel
 
 // Slagtajmning
 const SWING_COOLDOWN_MS = 220; // spärr mot spam-tryck på Space
-const SWING_TIMING_WINDOW_MS = 160; // hur nära bollträffen ett Space-tryck räknas som "hårt slag"
+const SWING_TIMING_WINDOW_MS = 300; // generöst input-bufferfönster före bollkontakt
+const PERFECT_SWING_WINDOW_MS = 125; // tajt fönster närmast kontakt ger ett hårt slag
+const LATE_HIT_DISTANCE = 24; // tillåter en kort reaktion precis efter att bollen passerat paddellinjen
 
 // De fyra banorna. Nyckeln används som Socket.io-rumsnamn.
 const COURTS = {
@@ -306,7 +307,7 @@ function createEmptyPlayer(id, username) {
     points: 0,
     games: 0,
     lastSwingAt: 0,
-    lastPaddleMoveAt: 0,
+    moveDirection: 0,
     lastPaddleMoveSequence: 0,
   };
 }
@@ -413,7 +414,7 @@ function getPublicState(courtKey) {
           games: room.challenger.games,
         }
       : null,
-    ball: { x: room.ball.x, y: room.ball.y },
+    ball: { x: room.ball.x, y: room.ball.y, vx: room.ball.vx, vy: room.ball.vy },
     queue: room.queue.map((p) => p.username),
     spectatorCount: room.queue.length,
   };
@@ -598,6 +599,8 @@ function startPregame(courtKey) {
 function beginMatch(courtKey) {
   const room = rooms[courtKey];
   room.phase = 'playing';
+  room.king.moveDirection = 0;
+  room.challenger.moveDirection = 0;
   positionBallForServe(room);
   broadcastState(courtKey);
 
@@ -720,6 +723,8 @@ function endMatch(courtKey, winnerRole, reason) {
   clearMatchTimer(room);
   room.phase = 'finished';
   room.rally = 'finished';
+  room.king.moveDirection = 0;
+  if (room.challenger) room.challenger.moveDirection = 0;
   room.ball.vx = 0;
   room.ball.vy = 0;
 
@@ -819,18 +824,20 @@ function updateBall(courtKey, room) {
     room.challenger &&
     room.ball.vy < 0 &&
     room.ball.y - BALL_RADIUS <= challengerLineY + PADDLE_HEIGHT / 2 &&
-    room.ball.y + BALL_RADIUS >= challengerLineY - PADDLE_HEIGHT / 2
+    room.ball.y + BALL_RADIUS >= challengerLineY - PADDLE_HEIGHT / 2 - LATE_HIT_DISTANCE
   ) {
-    if (Math.abs(room.ball.x - room.challenger.x) <= PADDLE_WIDTH / 2 + BALL_RADIUS) {
+    const swingAge = now - (room.challenger.lastSwingAt || 0);
+    const swingBuffered = swingAge >= 0 && swingAge <= SWING_TIMING_WINDOW_MS;
+    if (swingBuffered && Math.abs(room.ball.x - room.challenger.x) <= PADDLE_WIDTH / 2 + BALL_RADIUS) {
       room.ball.y = challengerLineY + PADDLE_HEIGHT / 2 + BALL_RADIUS;
-      const timed = now - (room.challenger.lastSwingAt || 0) <= SWING_TIMING_WINDOW_MS;
-      if (timed) {
+      const perfect = swingAge <= PERFECT_SWING_WINDOW_MS;
+      if (perfect) {
         hardBounce(room, room.challenger, 1);
-        room.challenger.lastSwingAt = 0;
       } else {
         softBounce(room, room.challenger, 1);
       }
-      io.to(courtKey).emit('hitFeedback', { role: 'challenger', type: timed ? 'hard' : 'soft' });
+      room.challenger.lastSwingAt = 0;
+      io.to(courtKey).emit('hitFeedback', { role: 'challenger', type: perfect ? 'hard' : 'soft' });
     }
   }
 
@@ -838,18 +845,20 @@ function updateBall(courtKey, room) {
     room.king &&
     room.ball.vy > 0 &&
     room.ball.y + BALL_RADIUS >= kingLineY - PADDLE_HEIGHT / 2 &&
-    room.ball.y - BALL_RADIUS <= kingLineY + PADDLE_HEIGHT / 2
+    room.ball.y - BALL_RADIUS <= kingLineY + PADDLE_HEIGHT / 2 + LATE_HIT_DISTANCE
   ) {
-    if (Math.abs(room.ball.x - room.king.x) <= PADDLE_WIDTH / 2 + BALL_RADIUS) {
+    const swingAge = now - (room.king.lastSwingAt || 0);
+    const swingBuffered = swingAge >= 0 && swingAge <= SWING_TIMING_WINDOW_MS;
+    if (swingBuffered && Math.abs(room.ball.x - room.king.x) <= PADDLE_WIDTH / 2 + BALL_RADIUS) {
       room.ball.y = kingLineY - PADDLE_HEIGHT / 2 - BALL_RADIUS;
-      const timed = now - (room.king.lastSwingAt || 0) <= SWING_TIMING_WINDOW_MS;
-      if (timed) {
+      const perfect = swingAge <= PERFECT_SWING_WINDOW_MS;
+      if (perfect) {
         hardBounce(room, room.king, -1);
-        room.king.lastSwingAt = 0;
       } else {
         softBounce(room, room.king, -1);
       }
-      io.to(courtKey).emit('hitFeedback', { role: 'king', type: timed ? 'hard' : 'soft' });
+      room.king.lastSwingAt = 0;
+      io.to(courtKey).emit('hitFeedback', { role: 'king', type: perfect ? 'hard' : 'soft' });
     }
   }
 
@@ -904,38 +913,25 @@ io.on('connection', (socket) => {
     broadcastLobby();
   });
 
-  // Piltangenter — flytta paddeln i sidled. Låst utanför 'playing'-fasen.
-  socket.on('paddleMove', (payload) => {
+  // Piltangenter — klienten skickar bara riktning. Serverns tick flyttar paddeln.
+  socket.on('paddleInput', (payload) => {
     const record = players.get(socket.id);
     if (!record) return;
     const room = rooms[record.court];
     if (!room || room.phase !== 'playing') return;
 
-    const rawX = Number(payload && payload.x);
+    const direction = Number(payload && payload.direction);
     const sequence = Number(payload && payload.sequence);
-    if (!Number.isFinite(rawX)) return;
+    if (![ -1, 0, 1 ].includes(direction)) return;
 
     let playerObj = null;
     if (room.king && room.king.id === socket.id) playerObj = room.king;
     if (room.challenger && room.challenger.id === socket.id) playerObj = room.challenger;
     if (!playerObj) return;
 
-    const now = Date.now();
-    const elapsedSeconds = playerObj.lastPaddleMoveAt
-      ? clamp((now - playerObj.lastPaddleMoveAt) / 1000, 0, 0.1)
-      : TICK_RATE_MS / 1000;
-    const maxDelta = MAX_PADDLE_SPEED * elapsedSeconds + PADDLE_MOVE_GRACE;
-    const requestedX = clamp(rawX, PADDLE_WIDTH / 2, CANVAS_WIDTH - PADDLE_WIDTH / 2);
-
-    playerObj.x = clamp(
-      requestedX,
-      playerObj.x - maxDelta,
-      playerObj.x + maxDelta
-    );
-    playerObj.lastPaddleMoveAt = now;
-    if (Number.isSafeInteger(sequence) && sequence > playerObj.lastPaddleMoveSequence) {
-      playerObj.lastPaddleMoveSequence = sequence;
-    }
+    if (!Number.isSafeInteger(sequence) || sequence <= playerObj.lastPaddleMoveSequence) return;
+    playerObj.moveDirection = direction;
+    playerObj.lastPaddleMoveSequence = sequence;
   });
 
   // Mellanslag — servar bollen (om spelaren är servande part och bollen väntar)
@@ -983,12 +979,24 @@ io.on('connection', (socket) => {
 // ─────────────────────────────────────────────────────────────────
 // SPELLOOP — fysik + broadcast till alla rum med aktiva anslutningar
 // ─────────────────────────────────────────────────────────────────
+let previousGameTickAt = Date.now();
 setInterval(() => {
   const now = Date.now();
+  const deltaSeconds = clamp((now - previousGameTickAt) / 1000, 0, 0.05);
+  previousGameTickAt = now;
 
   for (const courtKey of Object.keys(rooms)) {
     const room = rooms[courtKey];
     if (room.phase !== 'playing') continue;
+
+    for (const playerObj of [room.king, room.challenger]) {
+      if (!playerObj || !playerObj.moveDirection) continue;
+      playerObj.x = clamp(
+        playerObj.x + playerObj.moveDirection * PADDLE_SPEED * deltaSeconds,
+        PADDLE_WIDTH / 2,
+        CANVAS_WIDTH - PADDLE_WIDTH / 2
+      );
+    }
 
     if (room.rally === 'awaiting-serve') {
       // Bollen "svävar" ovanför den servande spelarens paddel tills serven slås
