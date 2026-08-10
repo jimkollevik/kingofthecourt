@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>King of the Court — Retro Tennis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-void: #0b0e1a;
+    --bg-panel: #131829;
+    --bg-panel-raised: #182042;
+    --line-grid: #232c4d;
+    --neon-cyan: #3fe0d0;
+    --neon-amber: #ffcf56;
+    --text-fog: #c7d0e8;
+    --text-dim: #6c7599;
+    --court-accent: #2f8dff;
+    --font-display: 'Press Start 2P', monospace;
+    --font-body: 'Space Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-void);
+    color: var(--text-fog);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::selection { background: var(--neon-amber); color: #10131f; }
+
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: overlay;
+  }
+
+  .screen { display: none; min-height: 100vh; width: 100%; }
+  .screen.is-active { display: block; }
+
+  /* ───────────────────────── START SCREEN ───────────────────────── */
+
+  .marquee {
+    overflow: hidden;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--line-grid);
+    background: var(--bg-panel);
+    padding: 8px 0;
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+  }
+  .marquee span { padding: 0 18px; display: inline-block; }
+
+  .hero { text-align: center; padding: 48px 20px 24px; }
+  .title {
+    font-family: var(--font-display);
+    font-size: clamp(26px, 6vw, 48px);
+    line-height: 1.5;
+    margin: 0;
+    color: #f2f5ff;
+    text-shadow: 0 0 12px rgba(63, 224, 208, 0.45), 0 0 32px rgba(47, 141, 255, 0.3);
+  }
+  .title-accent { color: var(--neon-amber); }
+  .subtitle { margin: 14px 0 0; color: var(--text-dim); font-size: 14px; letter-spacing: 0.5px; }
+
+  .start-layout {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  @media (max-width: 820px) { .start-layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--line-grid);
+    border-radius: 4px;
+    padding: 26px;
+    position: relative;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #2f8dff, #33d17a, #ff8c1a, #2438b0);
+  }
+
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    color: #f2f5ff;
+    margin: 4px 0 20px;
+    letter-spacing: 1px;
+  }
+
+  .rules-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .rules-list li { display: flex; gap: 12px; font-size: 13.5px; line-height: 1.55; color: var(--text-fog); }
+  .rule-num { font-family: var(--font-display); font-size: 10px; color: var(--neon-cyan); flex-shrink: 0; padding-top: 2px; }
+  .rules-list strong { color: var(--neon-amber); font-weight: 700; }
+
+  .field-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); margin: 0 0 8px; }
+  .courts-label { margin-top: 22px; }
+
+  .text-input {
+    width: 100%;
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--line-grid);
+    color: #f2f5ff;
+    font-family: var(--font-body);
+    font-size: 15px;
+    padding: 12px 14px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .text-input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 0 3px rgba(63, 224, 208, 0.15); }
+
+  .error-text { min-height: 18px; color: #ff5d8f; font-size: 12px; margin: 8px 0 0; }
+
+  .court-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .court-ticket {
+    position: relative;
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--line-grid);
+    border-left: 4px solid var(--court-accent);
+    border-radius: 3px;
+    padding: 14px;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text-fog);
+    font-family: var(--font-body);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .court-ticket:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.35), 0 0 0 1px var(--court-accent); }
+  .court-ticket.is-selected { background: rgba(255,255,255,0.03); box-shadow: 0 0 0 2px var(--court-accent), 0 0 18px rgba(255,255,255,0.08); }
+  .ticket-city { display: block; font-family: var(--font-display); font-size: 12px; color: #f2f5ff; margin-bottom: 8px; }
+  .ticket-meta { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text-dim); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--court-accent); box-shadow: 0 0 6px var(--court-accent); flex-shrink: 0; }
+
+  .play-button {
+    width: 100%;
+    margin-top: 22px;
+    padding: 15px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 1px;
+    border: none;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #2f8dff, #33d17a);
+    color: #0b0e1a;
+    cursor: pointer;
+    transition: filter 0.12s, transform 0.12s;
+  }
+  .play-button:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+  .play-button:disabled { background: var(--bg-panel-raised); color: var(--text-dim); cursor: not-allowed; }
+
+  .start-footer { text-align: center; color: var(--text-dim); font-size: 11px; padding: 10px 20px 40px; letter-spacing: 0.5px; }
+
+  /* ───────────────────────── GAME SCREEN ───────────────────────── */
+
+  .game-shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 18px;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 22px 18px 40px;
+    min-height: 100vh;
+    align-content: start;
+  }
+  @media (max-width: 820px) { .game-shell { grid-template-columns: 1fr; } }
+
+  .side-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--line-grid);
+    border-radius: 4px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    height: fit-content;
+  }
+
+  .side-court-name { font-family: var(--font-display); font-size: 15px; color: var(--court-accent); margin: 0 0 8px; text-shadow: 0 0 10px var(--court-accent); }
+
+  .role-badge {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 6px 10px;
+    border-radius: 3px;
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--line-grid);
+    margin: 0;
+  }
+  .role-badge.role-king { color: var(--neon-amber); border-color: var(--neon-amber); }
+  .role-badge.role-challenger { color: #ff8c1a; border-color: #ff8c1a; }
+  .role-badge.role-spectator { color: var(--text-dim); }
+
+  .leaderboard-open-button {
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--neon-amber);
+    color: var(--neon-amber);
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 12px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.12s;
+  }
+  .leaderboard-open-button:hover { background: rgba(255, 207, 86, 0.12); }
+
+  .records-open-button {
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--court-accent);
+    color: var(--court-accent);
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 12px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.12s;
+  }
+  .records-open-button:hover { background: rgba(63, 224, 208, 0.1); }
+
+  /* Live "regerande King"-panel — synlig hela tiden i sidopanelen */
+  .reign-panel {
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--line-grid);
+    border-radius: 3px;
+    padding: 12px 14px;
+  }
+  .reign-line { margin: 4px 0; font-size: 12px; color: var(--text-fog); }
+  .reign-current { color: var(--neon-amber); font-weight: 700; }
+  .reign-record-hint { color: var(--text-dim); font-size: 10.5px; display: block; margin-top: 1px; }
+
+  .records-panel { width: min(560px, 100%); }
+  .records-intro { font-size: 12px; color: var(--text-dim); margin: 0 0 16px; }
+  .records-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .records-grid { grid-template-columns: 1fr; } }
+
+  .record-card {
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--line-grid);
+    border-left: 4px solid var(--record-accent, var(--neon-cyan));
+    border-radius: 3px;
+    padding: 14px;
+  }
+  .record-card-title { font-family: var(--font-display); font-size: 11px; margin: 0 0 12px; color: #f2f5ff; }
+  .record-row { margin: 0 0 10px; }
+  .record-row:last-child { margin-bottom: 0; }
+  .record-row-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 3px; }
+  .record-row-value { font-size: 13px; color: var(--neon-amber); font-weight: 700; }
+  .record-row-empty { font-size: 12px; color: var(--text-dim); font-style: italic; }
+
+  .side-heading { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); margin: 0 0 10px; }
+  .spectator-count { margin: 0 0 12px; font-size: 13px; }
+  .spectator-count span { color: var(--neon-cyan); font-weight: 700; }
+
+  .queue-list {
+    list-style: decimal;
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-fog);
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .queue-list li.is-you { color: var(--neon-amber); font-weight: 700; }
+  .queue-empty { color: var(--text-dim); font-size: 12px; list-style: none; }
+
+  .leave-button {
+    margin-top: auto;
+    background: transparent;
+    border: 1px solid #ff5d8f;
+    color: #ff5d8f;
+    font-family: var(--font-body);
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .leave-button:hover { background: rgba(255, 93, 143, 0.12); }
+
+  .court-column { display: flex; flex-direction: column; }
+
+  .meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--line-grid);
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    padding: 8px 18px;
+    font-family: var(--font-display);
+    font-size: 11px;
+    color: var(--text-fog);
+  }
+  .meta-games span, .meta-timer span { color: var(--neon-cyan); }
+
+  .hud { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg-panel); border: 1px solid var(--line-grid); padding: 10px 16px; }
+  .hud-top { border-radius: 0; border-bottom: none; }
+  .hud-bottom { border-radius: 0 0 4px 4px; border-top: none; }
+  .hud-role { font-family: var(--font-display); font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+  .hud-name { font-size: 13px; color: #f2f5ff; flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 8px; }
+  .hud-score { font-family: var(--font-display); font-size: 13px; color: var(--neon-amber); min-width: 64px; text-align: right; white-space: nowrap; }
+
+  .serve-dot { width: 9px; height: 9px; border-radius: 50%; background: transparent; border: 1px solid var(--line-grid); flex-shrink: 0; transition: background 0.15s, box-shadow 0.15s, border-color 0.15s; }
+  .serve-dot.is-active { background: var(--neon-amber); border-color: var(--neon-amber); box-shadow: 0 0 10px var(--neon-amber); }
+
+  /* Vertikal 400×600-canvas i pixlig retrostil */
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    aspect-ratio: 400 / 600;
+    border-left: 1px solid var(--line-grid);
+    border-right: 1px solid var(--line-grid);
+    background: #05070d;
+    overflow: hidden;
+  }
+  #game-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    cursor: none;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+
+  .controls-hint { text-align: center; font-size: 10.5px; color: var(--text-dim); margin: 10px auto 0; letter-spacing: 0.3px; max-width: 420px; }
+
+  .overlay-message {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px;
+    font-family: var(--font-display);
+    font-size: clamp(16px, 6vw, 30px);
+    color: #f2f5ff;
+    text-shadow: 0 0 18px rgba(63, 224, 208, 0.6);
+    background: rgba(5, 7, 13, 0);
+    pointer-events: none;
+    text-align: center;
+    padding: 16px;
+  }
+  .overlay-message.is-visible { background: rgba(5, 7, 13, 0.72); }
+  .overlay-message .overlay-sub { font-family: var(--font-body); font-size: clamp(11px, 3vw, 14px); color: var(--text-fog); }
+  .overlay-message .overlay-sub-small { font-size: clamp(9px, 2.4vw, 11px); color: var(--text-dim); }
+
+  .serve-hint {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    font-family: var(--font-body); font-size: 11px; color: var(--text-fog);
+    background: rgba(19, 24, 41, 0.85); border: 1px solid var(--line-grid);
+    padding: 7px 12px; border-radius: 20px;
+    opacity: 0; pointer-events: none; transition: opacity 0.15s; white-space: nowrap;
+  }
+  .serve-hint.is-visible { opacity: 1; }
+  .serve-hint.is-me {
+    color: #10131f; background: var(--neon-amber); border-color: var(--neon-amber);
+    font-family: var(--font-display); font-size: 9px; animation: pulse-hint 1s ease-in-out infinite;
+  }
+  @keyframes pulse-hint { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } }
+
+  .toast-container {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    pointer-events: none; z-index: 10; width: 92%;
+  }
+  .toast {
+    font-family: var(--font-body); font-size: 11px; color: #f2f5ff;
+    background: rgba(19, 24, 41, 0.92); border: 1px solid var(--line-grid);
+    padding: 7px 14px; border-radius: 20px; opacity: 0; transform: translateY(-8px);
+    transition: opacity 0.2s, transform 0.2s; text-align: center;
+  }
+  .toast.is-visible { opacity: 1; transform: translateY(0); }
+  .toast-point { border-color: var(--neon-cyan); }
+  .toast-game { border-color: #ff8c1a; color: #ff8c1a; font-family: var(--font-display); font-size: 10px; }
+  .toast-match { border-color: var(--neon-amber); color: var(--neon-amber); font-family: var(--font-display); font-size: 11px; }
+  .toast-info { border-color: #33d17a; }
+  .toast-record { border-color: #ff8c1a; color: #ff8c1a; font-family: var(--font-display); font-size: 11px; box-shadow: 0 0 16px rgba(255, 140, 26, 0.35); }
+
+  .canvas-wrap.flash-soft { box-shadow: inset 0 0 40px rgba(63, 224, 208, 0.35); }
+  .canvas-wrap.flash-hard { box-shadow: inset 0 0 70px rgba(255, 207, 86, 0.55); }
+
+  /* ───────────────────────── LEADERBOARD-MODAL ───────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(5, 7, 13, 0.78);
+    display: none; align-items: center; justify-content: center; z-index: 500; padding: 20px;
+  }
+  .modal-backdrop.is-open { display: flex; }
+  .modal-panel {
+    background: var(--bg-panel); border: 1px solid var(--line-grid); border-radius: 4px;
+    padding: 22px; width: min(440px, 100%); max-height: 80vh; overflow-y: auto; position: relative;
+  }
+  .modal-panel::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #2f8dff, #33d17a, #ff8c1a, #2438b0); }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .modal-header h2 { font-family: var(--font-display); font-size: 14px; color: var(--neon-amber); margin: 0; }
+  .modal-close { background: transparent; border: 1px solid var(--line-grid); color: var(--text-fog); width: 30px; height: 30px; border-radius: 3px; cursor: pointer; font-size: 14px; }
+  .modal-close:hover { border-color: #ff5d8f; color: #ff5d8f; }
+
+  .leaderboard-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .leaderboard-table th { text-align: left; font-family: var(--font-display); font-size: 9px; color: var(--text-dim); letter-spacing: 1px; padding: 6px 8px; border-bottom: 1px solid var(--line-grid); }
+  .leaderboard-table td { padding: 8px; border-bottom: 1px solid var(--line-grid); color: var(--text-fog); }
+  .leaderboard-table tr:first-child td { color: var(--neon-amber); font-weight: 700; }
+  .leaderboard-table th:last-child, .leaderboard-table td:last-child,
+  .leaderboard-table th:nth-child(3), .leaderboard-table td:nth-child(3) { text-align: right; }
+  .leaderboard-empty { color: var(--text-dim); font-size: 12px; text-align: center; padding: 20px 0; display: none; }
+</style>
+</head>
+<body>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<!-- ───────────────────────── START SCREEN ───────────────────────── -->
+<section id="start-screen" class="screen is-active">
+  <div class="marquee">
+    <span>KUNGEN AV BANAN</span><span>•</span><span>KING OF THE COURT</span><span>•</span>
+    <span>KUNGEN AV BANAN</span><span>•</span><span>KING OF THE COURT</span><span>•</span>
+  </div>
+
+  <header class="hero">
+    <h1 class="title">KING <span class="title-accent">OF THE</span> COURT</h1>
+    <p class="subtitle">Retro vertikal tennis. Fyra världsstäder. En tron per bana.</p>
+  </header>
+
+  <div class="start-layout">
+    <div class="panel rules-panel">
+      <h2 class="panel-title">Så funkar det</h2>
+      <ol class="rules-list">
+        <li><span class="rule-num">01</span> Skriv ditt spelarnamn och välj bana.</li>
+        <li><span class="rule-num">02</span> De två första i kön möts direkt: <strong>Kungen</strong> spelar längst ner, <strong>Utmanaren</strong> längst upp.</li>
+        <li><span class="rule-num">03</span> Alla andra hamnar automatiskt i <strong>åskådarläge</strong> och ser matchen live på skärmen medan de väntar.</li>
+        <li><span class="rule-num">04</span> Styr paddeln med <strong>piltangenterna</strong> (↔) och slå/serva med <strong>Mellanslag</strong>.</li>
+        <li><span class="rule-num">05</span> Träffa tajmat med Mellanslag för ett <strong>hårt slag</strong> — annars blir det en lös retur.</li>
+        <li><span class="rule-num">06</span> Poäng räknas enligt riktig tennis: Love–15–30–40–Deuce–Advantage–Game.</li>
+        <li><span class="rule-num">07</span> Vinnaren behåller/tar tronen som Kung. Förloraren går bakerst i kön.</li>
+      </ol>
+    </div>
+
+    <div class="panel join-panel">
+      <h2 class="panel-title">Gå med</h2>
+      <label class="field-label" for="username-input">Spelarnamn</label>
+      <input id="username-input" class="text-input" type="text" maxlength="16" placeholder="T.ex. Backhand_Bea" autocomplete="off" />
+      <p id="join-error" class="error-text" role="alert"></p>
+
+      <h3 class="field-label courts-label">Välj bana</h3>
+      <div id="court-grid" class="court-grid"></div>
+
+      <button id="play-button" class="play-button" disabled>VÄLJ BANA FÖRST</button>
+    </div>
+  </div>
+
+  <footer class="start-footer">Kommersiellt multiplayer-tennisspel &middot; drivs av Express &amp; Socket.io</footer>
+</section>
+
+<!-- ───────────────────────── GAME SCREEN ───────────────────────── -->
+<section id="game-screen" class="screen">
+  <div class="game-shell">
+
+    <aside class="side-panel">
+      <div class="side-block">
+        <h2 id="court-title" class="side-court-name">—</h2>
+        <p id="role-badge" class="role-badge">Ansluter …</p>
+      </div>
+
+      <button id="leaderboard-button" class="leaderboard-open-button" type="button">🏆 TOPPLISTA</button>
+      <button id="records-button" class="records-open-button" type="button">🏰 BANREKORD</button>
+
+      <div id="reign-panel" class="side-block reign-panel">
+        <h3 class="side-heading">Regerande King</h3>
+        <p id="reign-current" class="reign-line reign-current">Ingen King än på banan</p>
+        <p id="reign-streak" class="reign-line">🔥 Segersvit: <span id="reign-streak-value">0</span> <span class="reign-record-hint" id="reign-streak-record"></span></p>
+        <p id="reign-time" class="reign-line">⏱ Regeringstid: <span id="reign-time-value">0:00</span> <span class="reign-record-hint" id="reign-time-record"></span></p>
+      </div>
+
+      <div class="side-block">
+        <h3 class="side-heading">Kö &amp; åskådare</h3>
+        <p class="spectator-count"><span id="spectator-count">0</span> väntar</p>
+        <ol id="queue-list" class="queue-list"></ol>
+      </div>
+
+      <button id="leave-button" class="leave-button" type="button">Lämna bana</button>
+    </aside>
+
+    <div class="court-column">
+      <div class="meta-bar">
+        <span class="meta-games"><span id="games-score">0 — 0</span> games</span>
+        <span class="meta-timer">⏱ <span id="match-timer">05:00</span></span>
+      </div>
+
+      <div class="hud hud-top">
+        <span class="hud-role">UTMANARE</span>
+        <span id="challenger-serve-dot" class="serve-dot" title="Servar"></span>
+        <span id="challenger-name" class="hud-name">—</span>
+        <span id="challenger-score" class="hud-score">Love</span>
+      </div>
+
+      <div id="canvas-wrap" class="canvas-wrap">
+        <canvas id="game-canvas" width="400" height="600"></canvas>
+        <div id="overlay-message" class="overlay-message"></div>
+        <div id="serve-hint" class="serve-hint"></div>
+        <div id="toast-container" class="toast-container"></div>
+      </div>
+
+      <div class="hud hud-bottom">
+        <span class="hud-role">KUNG</span>
+        <span id="king-serve-dot" class="serve-dot" title="Servar"></span>
+        <span id="king-name" class="hud-name">—</span>
+        <span id="king-score" class="hud-score">Love</span>
+      </div>
+
+      <p class="controls-hint">↔ Piltangenter för att röra dig &nbsp;·&nbsp; ⎵ Mellanslag för att serva/slå &nbsp;·&nbsp; träffa tajmat för hårt slag</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ───────────────────────── LEADERBOARD-MODAL ───────────────────────── -->
+<div id="leaderboard-modal" class="modal-backdrop">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h2>🏆 TOPPLISTA</h2>
+      <button id="leaderboard-close" class="modal-close" type="button" aria-label="Stäng">✕</button>
+    </div>
+    <table class="leaderboard-table">
+      <thead>
+        <tr><th>#</th><th>Spelare</th><th>Vinster</th><th>Matcher</th></tr>
+      </thead>
+      <tbody id="leaderboard-body"></tbody>
+    </table>
+    <p id="leaderboard-empty" class="leaderboard-empty">Inga matcher spelade ännu.</p>
+  </div>
+</div>
+
+<!-- ───────────────────────── BANREKORD-MODAL ───────────────────────── -->
+<div id="records-modal" class="modal-backdrop">
+  <div class="modal-panel records-panel">
+    <div class="modal-header">
+      <h2>🏰 BANREKORD</h2>
+      <button id="records-close" class="modal-close" type="button" aria-label="Stäng">✕</button>
+    </div>
+    <p class="records-intro">Två titlar per bana — försvara tronen längst i rad, eller sitt kvar längst totalt.</p>
+    <div id="records-grid" class="records-grid"></div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  // ─────────────────────────────────────────────────────────────
+  // SERVERNS KOORDINATSYSTEM (måste matcha server.js) OCH SKALNING
+  // TILL DEN VERTIKALA 400×600-CANVASEN
+  // ─────────────────────────────────────────────────────────────
+  const SERVER_WIDTH = 800;
+  const SERVER_HEIGHT = 600;
+  const DISPLAY_WIDTH = 400;
+  const DISPLAY_HEIGHT = 600;
+  const SCALE_X = DISPLAY_WIDTH / SERVER_WIDTH;   // 0.5
+  const SCALE_Y = DISPLAY_HEIGHT / SERVER_HEIGHT; // 1
+
+  const PADDLE_WIDTH_SRV = 110;
+  const PADDLE_HEIGHT_SRV = 14;
+  const PADDLE_MARGIN_SRV = 24;
+  const BALL_SIZE_DISPLAY = 8; // chunky retro-pixel-boll (fast storlek oavsett skalning)
+
+  const PADDLE_W = PADDLE_WIDTH_SRV * SCALE_X;
+  const PADDLE_H = PADDLE_HEIGHT_SRV * SCALE_Y;
+
+  const COURTS_META = {
+    melbourne: { name: 'Melbourne', accent: '#2f8dff' },
+    paris: { name: 'Paris', accent: '#ff8c1a' },
+    london: { name: 'London', accent: '#33d17a' },
+    newyork: { name: 'New York', accent: '#2438b0' },
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // WEB AUDIO — retro 8-bitars ljudeffekter (inga externa filer)
+  // ─────────────────────────────────────────────────────────────
+  const AudioEngine = (() => {
+    let ctx = null;
+    let unlocked = false;
+
+    function ensureContext() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC();
+      }
+      if (ctx.state === 'suspended') ctx.resume();
+      unlocked = true;
+      return ctx;
+    }
+
+    function tone({ freq, duration = 0.09, type = 'square', volume = 0.18, delay = 0, freqEnd = null }) {
+      if (!unlocked || !ctx) return;
+      const now = ctx.currentTime + delay;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+      if (freqEnd) osc.frequency.linearRampToValueAtTime(freqEnd, now + duration);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(volume, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.03);
+    }
+
+    function noiseBurst({ duration = 0.05, volume = 0.16, delay = 0 }) {
+      if (!unlocked || !ctx) return;
+      const now = ctx.currentTime + delay;
+      const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      src.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(now);
+    }
+
+    return {
+      unlock: ensureContext,
+
+      // 1) Unikt startljud/alarm när 30s-nedräkningen börjar
+      playCountdownAlarm() {
+        ensureContext();
+        for (let i = 0; i < 3; i++) {
+          tone({ freq: 880, duration: 0.11, type: 'square', volume: 0.15, delay: i * 0.26 });
+          tone({ freq: 620, duration: 0.11, type: 'square', volume: 0.15, delay: i * 0.26 + 0.12 });
+        }
+      },
+
+      // 2) Vanlig bollträff (lös/automatisk retur)
+      playSoftHit() {
+        ensureContext();
+        tone({ freq: 220, duration: 0.05, type: 'square', volume: 0.13 });
+      },
+
+      // 3) Hårt slag (vältajmat Mellanslag)
+      playHardHit() {
+        ensureContext();
+        tone({ freq: 760, freqEnd: 200, duration: 0.09, type: 'sawtooth', volume: 0.2 });
+        noiseBurst({ duration: 0.05, volume: 0.17 });
+      },
+
+      // 4) Poäng vunnet
+      playPoint() {
+        ensureContext();
+        tone({ freq: 523.25, duration: 0.07, type: 'square', volume: 0.15 });
+        tone({ freq: 783.99, duration: 0.09, type: 'square', volume: 0.15, delay: 0.07 });
+      },
+
+      // 4b) Game vunnet — större fanfar
+      playGameWon() {
+        ensureContext();
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
+          tone({ freq: f, duration: 0.13, type: 'square', volume: 0.17, delay: i * 0.1 })
+        );
+      },
+
+      // Bonus: matchslut-fanfar (ej ett krav, men förstärker känslan)
+      playMatchEnd(won) {
+        ensureContext();
+        const notes = won ? [523.25, 659.25, 783.99, 1046.5, 1318.5] : [440, 392, 349.23, 293.66];
+        const type = won ? 'square' : 'triangle';
+        notes.forEach((f, i) => tone({ freq: f, duration: 0.18, type, volume: 0.18, delay: i * 0.12 }));
+      },
+
+      // Bonus: banrekord slaget (segersvit eller total regeringstid) — extra
+      // festlig "twinkle"-fanfar så att det tydligt känns som en stor grej.
+      playNewRecord() {
+        ensureContext();
+        [659.25, 830.61, 987.77, 1318.5].forEach((f, i) =>
+          tone({ freq: f, duration: 0.12, type: 'square', volume: 0.19, delay: i * 0.08 })
+        );
+        [1567.98, 2093.0].forEach((f, i) =>
+          tone({ freq: f, duration: 0.09, type: 'triangle', volume: 0.14, delay: 0.34 + i * 0.09 })
+        );
+      },
+    };
+  })();
+
+  function unlockAudioOnce() {
+    AudioEngine.unlock();
+    document.removeEventListener('click', unlockAudioOnce);
+    document.removeEventListener('keydown', unlockAudioOnce);
+  }
+  document.addEventListener('click', unlockAudioOnce);
+  document.addEventListener('keydown', unlockAudioOnce);
+
+  // ─────────────────────────────────────────────────────────────
+  // DOM-REFERENSER
+  // ─────────────────────────────────────────────────────────────
+  const startScreen = document.getElementById('start-screen');
+  const gameScreen = document.getElementById('game-screen');
+
+  const usernameInput = document.getElementById('username-input');
+  const joinError = document.getElementById('join-error');
+  const courtGrid = document.getElementById('court-grid');
+  const playButton = document.getElementById('play-button');
+
+  const courtTitleEl = document.getElementById('court-title');
+  const roleBadgeEl = document.getElementById('role-badge');
+  const spectatorCountEl = document.getElementById('spectator-count');
+  const queueListEl = document.getElementById('queue-list');
+  const leaveButton = document.getElementById('leave-button');
+
+  const challengerNameEl = document.getElementById('challenger-name');
+  const challengerScoreEl = document.getElementById('challenger-score');
+  const challengerServeDotEl = document.getElementById('challenger-serve-dot');
+  const kingNameEl = document.getElementById('king-name');
+  const kingScoreEl = document.getElementById('king-score');
+  const kingServeDotEl = document.getElementById('king-serve-dot');
+
+  const matchTimerEl = document.getElementById('match-timer');
+  const gamesScoreEl = document.getElementById('games-score');
+  const serveHintEl = document.getElementById('serve-hint');
+  const overlayEl = document.getElementById('overlay-message');
+  const toastContainer = document.getElementById('toast-container');
+  const canvasWrap = document.getElementById('canvas-wrap');
+
+  const canvas = document.getElementById('game-canvas');
+  const ctx2d = canvas.getContext('2d');
+  ctx2d.imageSmoothingEnabled = false;
+
+  const leaderboardButton = document.getElementById('leaderboard-button');
+  const leaderboardModal = document.getElementById('leaderboard-modal');
+  const leaderboardClose = document.getElementById('leaderboard-close');
+  const leaderboardBody = document.getElementById('leaderboard-body');
+  const leaderboardEmpty = document.getElementById('leaderboard-empty');
+
+  const recordsButton = document.getElementById('records-button');
+  const recordsModal = document.getElementById('records-modal');
+  const recordsClose = document.getElementById('records-close');
+  const recordsGrid = document.getElementById('records-grid');
+
+  const reignCurrentEl = document.getElementById('reign-current');
+  const reignStreakValueEl = document.getElementById('reign-streak-value');
+  const reignStreakRecordEl = document.getElementById('reign-streak-record');
+  const reignTimeValueEl = document.getElementById('reign-time-value');
+  const reignTimeRecordEl = document.getElementById('reign-time-record');
+
+  // ─────────────────────────────────────────────────────────────
+  // BYGG BANVALS-KORTEN DYNAMISKT (en källa till sanning för färger)
+  // ─────────────────────────────────────────────────────────────
+  Object.keys(COURTS_META).forEach((courtKey) => {
+    const meta = COURTS_META[courtKey];
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'court-ticket';
+    button.dataset.court = courtKey;
+    button.style.setProperty('--court-accent', meta.accent);
+
+    const cityEl = document.createElement('span');
+    cityEl.className = 'ticket-city';
+    cityEl.textContent = meta.name;
+
+    const metaEl = document.createElement('span');
+    metaEl.className = 'ticket-meta';
+    const dotEl = document.createElement('span');
+    dotEl.className = 'dot';
+    const statusEl = document.createElement('span');
+    statusEl.className = 'ticket-count';
+    statusEl.dataset.field = 'status';
+    statusEl.textContent = 'Ledig tron';
+    metaEl.appendChild(dotEl);
+    metaEl.appendChild(statusEl);
+
+    button.appendChild(cityEl);
+    button.appendChild(metaEl);
+    courtGrid.appendChild(button);
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // LOKAL STATE
+  // ─────────────────────────────────────────────────────────────
+  let selectedCourt = null;
+  let myUsername = null;
+  let myRole = 'spectator';
+  let myCourt = null;
+  let hasJoinedGameScreen = false;
+  let myPaddleX = SERVER_WIDTH / 2;
+  let lastCoinToss = null;
+  let recordsStore = {}; // court -> { longestKingStreak, mostKingMinutes } — cache för modalen
+  let latestOwnCourtState = null; // senaste 'state' för banan man själv är i, för att kunna re-rendera reign-panelen
+  const heldKeys = { left: false, right: false };
+
+  const socket = io();
+
+  // ─────────────────────────────────────────────────────────────
+  // START SCREEN — val av bana
+  // ─────────────────────────────────────────────────────────────
+  function updatePlayButtonState() {
+    const nameOk = usernameInput.value.trim().length >= 2;
+    if (!selectedCourt) {
+      playButton.disabled = true;
+      playButton.textContent = 'VÄLJ BANA FÖRST';
+    } else if (!nameOk) {
+      playButton.disabled = true;
+      playButton.textContent = 'SKRIV DITT NAMN';
+    } else {
+      playButton.disabled = false;
+      playButton.textContent = `SPELA I ${selectedCourt.toUpperCase()}`;
+    }
+  }
+
+  courtGrid.addEventListener('click', (event) => {
+    const ticket = event.target.closest('.court-ticket');
+    if (!ticket) return;
+    selectedCourt = ticket.dataset.court;
+    document.querySelectorAll('.court-ticket').forEach((el) => el.classList.toggle('is-selected', el === ticket));
+    updatePlayButtonState();
+  });
+
+  usernameInput.addEventListener('input', () => {
+    joinError.textContent = '';
+    updatePlayButtonState();
+  });
+
+  playButton.addEventListener('click', () => {
+    if (playButton.disabled) return;
+    AudioEngine.unlock();
+    myUsername = usernameInput.value.trim();
+    myCourt = selectedCourt;
+    joinError.textContent = '';
+    socket.emit('joinQueue', { username: myUsername, court: selectedCourt });
+  });
+
+  usernameInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !playButton.disabled) playButton.click();
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // LOBBY-UPPDATERINGAR
+  // ─────────────────────────────────────────────────────────────
+  socket.on('lobbyUpdate', (snapshot) => {
+    Object.keys(snapshot).forEach((courtKey) => {
+      const info = snapshot[courtKey];
+      const ticket = courtGrid.querySelector(`.court-ticket[data-court="${courtKey}"]`);
+      if (!ticket) return;
+      const statusEl = ticket.querySelector('[data-field="status"]');
+      let label;
+      if (info.kingName && info.challengerName) {
+        label = info.phase === 'pregame' ? `${info.kingName} vs ${info.challengerName} · gör redo` : `${info.kingName} vs ${info.challengerName}`;
+      } else if (info.kingName) {
+        label = `${info.kingName} väntar på utmanare`;
+      } else {
+        label = 'Ledig tron';
+      }
+      if (info.queueLength > 0) label += ` · ${info.queueLength} i kö`;
+      statusEl.textContent = label;
+    });
+
+    if (myCourt && snapshot[myCourt]) {
+      document.documentElement.style.setProperty('--court-accent', snapshot[myCourt].accent);
+    }
+  });
+
+  socket.on('errorMsg', (message) => { joinError.textContent = message; });
+
+  // ─────────────────────────────────────────────────────────────
+  // ROLL-TILLDELNING
+  // ─────────────────────────────────────────────────────────────
+  socket.on('role', (payload) => {
+    myRole = payload.role;
+    myCourt = payload.court;
+
+    if (!hasJoinedGameScreen) {
+      startScreen.classList.remove('is-active');
+      gameScreen.classList.add('is-active');
+      hasJoinedGameScreen = true;
+    }
+
+    document.documentElement.style.setProperty('--court-accent', payload.accent);
+    courtTitleEl.textContent = payload.courtName;
+    courtTitleEl.style.color = payload.accent;
+
+    roleBadgeEl.classList.remove('role-king', 'role-challenger', 'role-spectator');
+    if (payload.role === 'king') {
+      roleBadgeEl.textContent = '👑 Du är KUNGEN — försvara tronen!';
+      roleBadgeEl.classList.add('role-king');
+    } else if (payload.role === 'challenger') {
+      roleBadgeEl.textContent = '⚡ Du är UTMANAREN — ta tronen!';
+      roleBadgeEl.classList.add('role-challenger');
+    } else {
+      const pos = payload.position ? ` (plats ${payload.position})` : '';
+      roleBadgeEl.textContent = `👀 Du är åskådare${pos}`;
+      roleBadgeEl.classList.add('role-spectator');
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // MATCH-START-EVENT — coin toss + 30s nedräkning + ALARM-LJUD
+  // ─────────────────────────────────────────────────────────────
+  socket.on('match-start-event', (payload) => {
+    lastCoinToss = payload;
+    AudioEngine.playCountdownAlarm();
+    const servingName = payload.server === 'king' ? payload.king : payload.challenger;
+    pushToast(`🪙 Slantsingling: ${payload.coinToss.result.toUpperCase()} — ${servingName} servar först!`, 'info', 4200);
+  });
+
+  socket.on('pointWon', (payload) => {
+    AudioEngine.playPoint();
+    const label = payload.winner === 'king' ? 'Kungen' : 'Utmanaren';
+    pushToast(`Poäng: ${label} (${payload.score.king}–${payload.score.challenger})`, 'point', 1300);
+  });
+
+  socket.on('gameWon', (payload) => {
+    AudioEngine.playGameWon();
+    pushToast(`🎾 GAME till ${payload.winnerUsername}! (${payload.games.king}–${payload.games.challenger})`, 'game', 2400);
+  });
+
+  socket.on('matchEnd', (payload) => {
+    const won = payload.winner === myRole;
+    AudioEngine.playMatchEnd(won);
+    const reasonText = payload.reason === 'time' ? 'Tiden tog slut' : 'Matchen avgjord';
+    pushToast(`🏆 ${reasonText} — ${payload.winnerUsername} vinner matchen!`, 'match', 5500);
+  });
+
+  socket.on('hitFeedback', (payload) => {
+    flashHit(payload.type);
+    if (payload.type === 'hard') AudioEngine.playHardHit();
+    else AudioEngine.playSoftHit();
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // TOPPLISTA — öppningsbar utan att lämna rummet
+  // ─────────────────────────────────────────────────────────────
+  leaderboardButton.addEventListener('click', () => {
+    leaderboardModal.classList.add('is-open');
+    socket.emit('requestLeaderboard');
+  });
+  leaderboardClose.addEventListener('click', () => leaderboardModal.classList.remove('is-open'));
+  leaderboardModal.addEventListener('click', (event) => {
+    if (event.target === leaderboardModal) leaderboardModal.classList.remove('is-open');
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') leaderboardModal.classList.remove('is-open');
+  });
+
+  socket.on('leaderboardData', (rows) => {
+    leaderboardBody.innerHTML = '';
+    leaderboardEmpty.style.display = rows.length ? 'none' : 'block';
+    rows.forEach((row, index) => {
+      const tr = document.createElement('tr');
+      const rankTd = document.createElement('td');
+      rankTd.textContent = String(index + 1);
+      const nameTd = document.createElement('td');
+      nameTd.textContent = row.username;
+      const winsTd = document.createElement('td');
+      winsTd.textContent = String(row.wins);
+      const matchesTd = document.createElement('td');
+      matchesTd.textContent = String(row.matchesPlayed);
+      tr.appendChild(rankTd);
+      tr.appendChild(nameTd);
+      tr.appendChild(winsTd);
+      tr.appendChild(matchesTd);
+      leaderboardBody.appendChild(tr);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // BANREKORD — "Flest vinster i rad som King" + "Flest minuter som King",
+  // PER BANA. Öppningsbar utan att lämna rummet, uppdateras live.
+  // ─────────────────────────────────────────────────────────────
+  recordsButton.addEventListener('click', () => {
+    recordsModal.classList.add('is-open');
+    socket.emit('requestRecords');
+  });
+  recordsClose.addEventListener('click', () => recordsModal.classList.remove('is-open'));
+  recordsModal.addEventListener('click', (event) => {
+    if (event.target === recordsModal) recordsModal.classList.remove('is-open');
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') recordsModal.classList.remove('is-open');
+  });
+
+  function formatMinutes(minutes) {
+    const m = Math.floor(minutes);
+    const s = Math.round((minutes - m) * 60);
+    return s > 0 ? `${m} min ${s} s` : `${m} min`;
+  }
+
+  function renderRecordsModal() {
+    recordsGrid.innerHTML = '';
+    Object.keys(COURTS_META).forEach((courtKey) => {
+      const meta = COURTS_META[courtKey];
+      const rec = recordsStore[courtKey];
+
+      const card = document.createElement('div');
+      card.className = 'record-card';
+      card.style.setProperty('--record-accent', meta.accent);
+
+      const title = document.createElement('h3');
+      title.className = 'record-card-title';
+      title.style.color = meta.accent;
+      title.textContent = meta.name;
+      card.appendChild(title);
+
+      card.appendChild(buildRecordRow(
+        '🔥 Flest vinster i rad som King',
+        rec && rec.longestKingStreak && rec.longestKingStreak.wins > 0
+          ? `${rec.longestKingStreak.wins} vinster — ${rec.longestKingStreak.username}`
+          : null
+      ));
+      card.appendChild(buildRecordRow(
+        '⏱ Flest minuter som King',
+        rec && rec.mostKingMinutes && rec.mostKingMinutes.minutes > 0
+          ? `${formatMinutes(rec.mostKingMinutes.minutes)} — ${rec.mostKingMinutes.username}`
+          : null
+      ));
+
+      recordsGrid.appendChild(card);
+    });
+  }
+
+  function buildRecordRow(label, value) {
+    const row = document.createElement('div');
+    row.className = 'record-row';
+    const labelEl = document.createElement('div');
+    labelEl.className = 'record-row-label';
+    labelEl.textContent = label;
+    const valueEl = document.createElement('div');
+    if (value) {
+      valueEl.className = 'record-row-value';
+      valueEl.textContent = value;
+    } else {
+      valueEl.className = 'record-row-empty';
+      valueEl.textContent = 'Inget rekord ännu';
+    }
+    row.appendChild(labelEl);
+    row.appendChild(valueEl);
+    return row;
+  }
+
+  socket.on('recordsData', (allRecords) => {
+    recordsStore = allRecords;
+    renderRecordsModal();
+    if (latestOwnCourtState) renderReignPanel(latestOwnCourtState);
+  });
+
+  socket.on('recordsUpdate', (payload) => {
+    recordsStore[payload.court] = payload.records;
+    renderRecordsModal();
+
+    if (payload.court !== myCourt) return; // toast/ljud bara för den bana man själv befinner sig på
+
+    const meta = payload.meta || {};
+    if (meta.event === 'new-streak-record') {
+      AudioEngine.playNewRecord();
+      pushToast(`🔥 NYTT REKORD! ${meta.username} har nu ${meta.streak} vinster i rad som King!`, 'record', 4500);
+    } else if (meta.event === 'reign-ended') {
+      if (meta.newTimeRecord) {
+        AudioEngine.playNewRecord();
+        pushToast(`⏱ NYTT REKORD! ${meta.username} satt som King i totalt ${formatMinutes(payload.records.mostKingMinutes.minutes)}!`, 'record', 4500);
+      } else {
+        pushToast(`👑 ${meta.username} förlorade kronan (regerade i ${meta.reignMinutes} min, svit: ${meta.finalStreak})`, 'info', 3200);
+      }
+    }
+    if (latestOwnCourtState) renderReignPanel(latestOwnCourtState);
+  });
+
+  // Live-panel i sidopanelen: visar regerande Kungens svit/tid för DIN bana
+  // just nu, jämfört med banans historiska rekord — så väntande spelare och
+  // åskådare kan följa jakten på rekorden i realtid.
+  function renderReignPanel(state) {
+    if (!state.king) {
+      reignCurrentEl.textContent = 'Ingen King än på banan';
+      reignStreakValueEl.textContent = '0';
+      reignTimeValueEl.textContent = '0:00';
+      reignStreakRecordEl.textContent = '';
+      reignTimeRecordEl.textContent = '';
+      return;
+    }
+    reignCurrentEl.textContent = `👑 ${state.king.username}`;
+    reignStreakValueEl.textContent = String(state.king.winStreak || 0);
+    reignTimeValueEl.textContent = formatClock(state.king.reignSeconds || 0);
+
+    const rec = recordsStore[state.court];
+    if (rec && rec.longestKingStreak && rec.longestKingStreak.wins > 0) {
+      reignStreakRecordEl.textContent = `Rekord: ${rec.longestKingStreak.wins} (${rec.longestKingStreak.username})`;
+    } else {
+      reignStreakRecordEl.textContent = 'Inget rekord ännu';
+    }
+    if (rec && rec.mostKingMinutes && rec.mostKingMinutes.minutes > 0) {
+      reignTimeRecordEl.textContent = `Rekord: ${formatMinutes(rec.mostKingMinutes.minutes)} (${rec.mostKingMinutes.username})`;
+    } else {
+      reignTimeRecordEl.textContent = 'Inget rekord ännu';
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SPELSTATE — driver rendering
+  // ─────────────────────────────────────────────────────────────
+  socket.on('state', (state) => {
+    challengerNameEl.textContent = state.challenger ? state.challenger.username : 'Väntar …';
+    challengerScoreEl.textContent = state.challenger ? state.challenger.points : 'Love';
+    kingNameEl.textContent = state.king ? state.king.username : 'Väntar …';
+    kingScoreEl.textContent = state.king ? state.king.points : 'Love';
+
+    challengerServeDotEl.classList.toggle('is-active', state.phase === 'playing' && state.server === 'challenger');
+    kingServeDotEl.classList.toggle('is-active', state.phase === 'playing' && state.server === 'king');
+
+    gamesScoreEl.textContent = `${state.king ? state.king.games : 0} — ${state.challenger ? state.challenger.games : 0}`;
+    matchTimerEl.textContent = formatClock(state.matchSecondsRemaining);
+
+    spectatorCountEl.textContent = state.spectatorCount;
+    renderQueue(state.queue);
+
+    if (myRole === 'king' && state.king) myPaddleX = state.king.x;
+    if (myRole === 'challenger' && state.challenger) myPaddleX = state.challenger.x;
+
+    updateOverlay(state);
+    updateServeHint(state);
+    renderCourt(state);
+
+    latestOwnCourtState = state;
+    renderReignPanel(state);
+  });
+
+  function renderQueue(queue) {
+    queueListEl.innerHTML = '';
+    if (queue.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'queue-empty';
+      li.textContent = 'Ingen i kö just nu';
+      queueListEl.appendChild(li);
+      return;
+    }
+    queue.forEach((name) => {
+      const li = document.createElement('li');
+      li.textContent = name;
+      if (myRole === 'spectator' && name === myUsername) li.classList.add('is-you');
+      queueListEl.appendChild(li);
+    });
+  }
+
+  function formatClock(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds || 0));
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+  }
+
+  function updateServeHint(state) {
+    if (state.phase === 'playing' && state.rally === 'awaiting-serve') {
+      const iAmServer = (state.server === 'king' && myRole === 'king') || (state.server === 'challenger' && myRole === 'challenger');
+      if (iAmServer) {
+        serveHintEl.textContent = '⎵ TRYCK MELLANSLAG FÖR ATT SERVA';
+        serveHintEl.classList.add('is-visible', 'is-me');
+      } else {
+        const serverName = state.server === 'king' ? (state.king ? state.king.username : '') : (state.challenger ? state.challenger.username : '');
+        serveHintEl.textContent = `Väntar på serve från ${serverName} …`;
+        serveHintEl.classList.add('is-visible');
+        serveHintEl.classList.remove('is-me');
+      }
+    } else {
+      serveHintEl.classList.remove('is-visible', 'is-me');
+    }
+  }
+
+  function updateOverlay(state) {
+    overlayEl.innerHTML = '';
+    overlayEl.classList.remove('is-visible');
+
+    if (state.phase === 'waiting') {
+      overlayEl.classList.add('is-visible');
+      appendOverlayLines(state.king && !state.challenger ? 'VÄNTAR PÅ UTMANARE' : 'VÄNTAR PÅ SPELARE', 'Fler kan gå med i kön när som helst');
+    } else if (state.phase === 'pregame') {
+      overlayEl.classList.add('is-visible');
+      const servingName = state.server === 'king' ? (state.king ? state.king.username : '') : (state.challenger ? state.challenger.username : '');
+      const tossLine = lastCoinToss && lastCoinToss.court === state.court
+        ? `Slantsingling: ${lastCoinToss.coinToss.result.toUpperCase()}`
+        : 'Slantsingling avgjord';
+      const main = document.createElement('div');
+      main.textContent = String(state.pregameCountdown > 0 ? state.pregameCountdown : 'KÖR!');
+      const sub1 = document.createElement('div');
+      sub1.className = 'overlay-sub';
+      sub1.textContent = `${tossLine} — ${servingName} servar först`;
+      const sub2 = document.createElement('div');
+      sub2.className = 'overlay-sub overlay-sub-small';
+      sub2.textContent = 'Ni är låsta tills nedräkningen når noll';
+      overlayEl.appendChild(main);
+      overlayEl.appendChild(sub1);
+      overlayEl.appendChild(sub2);
+    } else if (state.phase === 'finished') {
+      overlayEl.classList.add('is-visible');
+      const kingWon = state.king && state.challenger && state.king.games > state.challenger.games;
+      const winnerName = state.king && state.challenger ? (kingWon ? state.king.username : state.challenger.username) : '';
+      appendOverlayLines('MATCH SLUT', winnerName ? `${winnerName} vinner matchen!` : '');
+    }
+  }
+
+  function appendOverlayLines(main, sub) {
+    const mainEl = document.createElement('div');
+    mainEl.textContent = main;
+    overlayEl.appendChild(mainEl);
+    if (sub) {
+      const subEl = document.createElement('div');
+      subEl.className = 'overlay-sub';
+      subEl.textContent = sub;
+      overlayEl.appendChild(subEl);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // TOASTS & TRÄFF-FEEDBACK
+  // ─────────────────────────────────────────────────────────────
+  function pushToast(text, kind, durationMs) {
+    const el = document.createElement('div');
+    el.className = `toast toast-${kind}`;
+    el.textContent = text;
+    toastContainer.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('is-visible'));
+    setTimeout(() => {
+      el.classList.remove('is-visible');
+      setTimeout(() => el.remove(), 300);
+    }, durationMs || 2000);
+  }
+
+  function flashHit(type) {
+    const cls = type === 'hard' ? 'flash-hard' : 'flash-soft';
+    canvasWrap.classList.remove('flash-hard', 'flash-soft');
+    void canvasWrap.offsetWidth;
+    canvasWrap.classList.add(cls);
+    setTimeout(() => canvasWrap.classList.remove(cls), 220);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // RENDERING — vertikal 400×600 pixlig retro-canvas, hög kontrast
+  // ─────────────────────────────────────────────────────────────
+  function toDisplayX(serverX) { return serverX * SCALE_X; }
+  function toDisplayY(serverY) { return serverY * SCALE_Y; }
+
+  function renderCourt(state) {
+    ctx2d.clearRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+    // Bakgrund
+    ctx2d.fillStyle = '#05070d';
+    ctx2d.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+    // Sidolinjer (hög kontrast, hackiga pixel-kanter — inga rundade hörn)
+    const marginX = toDisplayX(20);
+    const marginY = toDisplayY(20);
+    ctx2d.strokeStyle = '#e8ecff';
+    ctx2d.lineWidth = 2;
+    ctx2d.strokeRect(marginX, marginY, DISPLAY_WIDTH - marginX * 2, DISPLAY_HEIGHT - marginY * 2);
+
+    // Mittnät (streckad linje i banans accentfärg)
+    ctx2d.save();
+    ctx2d.strokeStyle = state.accent || '#2f8dff';
+    ctx2d.lineWidth = 3;
+    ctx2d.setLineDash([10, 8]);
+    ctx2d.beginPath();
+    ctx2d.moveTo(marginX, DISPLAY_HEIGHT / 2);
+    ctx2d.lineTo(DISPLAY_WIDTH - marginX, DISPLAY_HEIGHT / 2);
+    ctx2d.stroke();
+    ctx2d.restore();
+
+    if (state.challenger) {
+      drawPaddle(state.challenger.x, PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'challenger' && state.rally === 'awaiting-serve');
+    }
+    if (state.king) {
+      drawPaddle(state.king.x, SERVER_HEIGHT - PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'king' && state.rally === 'awaiting-serve');
+    }
+
+    if (state.phase === 'playing' && (state.rally === 'live' || state.rally === 'awaiting-serve')) {
+      drawBall(state.ball.x, state.ball.y, state.accent);
+    }
+  }
+
+  function drawPaddle(serverX, serverY, accent, isServing) {
+    const x = toDisplayX(serverX) - PADDLE_W / 2;
+    const y = toDisplayY(serverY) - PADDLE_H / 2;
+    ctx2d.save();
+    ctx2d.fillStyle = accent || '#2f8dff';
+    ctx2d.shadowColor = accent || '#2f8dff';
+    ctx2d.shadowBlur = isServing ? 20 : 10;
+    // Blockig, hård-kantad rektangel — inga rundade hörn för äkta pixel-look
+    ctx2d.fillRect(Math.round(x), Math.round(y), Math.round(PADDLE_W), Math.round(PADDLE_H));
+    ctx2d.restore();
+  }
+
+  function drawBall(serverX, serverY, accent) {
+    const x = Math.round(toDisplayX(serverX) - BALL_SIZE_DISPLAY / 2);
+    const y = Math.round(toDisplayY(serverY) - BALL_SIZE_DISPLAY / 2);
+    ctx2d.save();
+    ctx2d.fillStyle = '#f2f5ff';
+    ctx2d.shadowColor = accent || '#f2f5ff';
+    ctx2d.shadowBlur = 14;
+    ctx2d.fillRect(x, y, BALL_SIZE_DISPLAY, BALL_SIZE_DISPLAY);
+    ctx2d.restore();
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // KONTROLLER — piltangenter för rörelse, Space för att slå/serva
+  // ─────────────────────────────────────────────────────────────
+  function amIActivePlayer() { return myRole === 'king' || myRole === 'challenger'; }
+
+  let lastEmitTime = 0;
+  function sendPaddleX(x) {
+    myPaddleX = Math.max(PADDLE_WIDTH_SRV / 2, Math.min(SERVER_WIDTH - PADDLE_WIDTH_SRV / 2, x));
+    const now = performance.now();
+    if (now - lastEmitTime < 20) return;
+    lastEmitTime = now;
+    socket.emit('paddleMove', { x: myPaddleX });
+  }
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') { heldKeys.left = true; event.preventDefault(); }
+    if (event.key === 'ArrowRight') { heldKeys.right = true; event.preventDefault(); }
+    if (event.code === 'Space' && !event.repeat) {
+      event.preventDefault();
+      if (amIActivePlayer()) socket.emit('swing');
+    }
+  });
+  window.addEventListener('keyup', (event) => {
+    if (event.key === 'ArrowLeft') heldKeys.left = false;
+    if (event.key === 'ArrowRight') heldKeys.right = false;
+  });
+
+  const KEYBOARD_STEP_SRV = 12; // rörelse per bildruta i serverns 800-breda koordinatsystem
+  function keyboardLoop() {
+    if (amIActivePlayer() && (heldKeys.left || heldKeys.right)) {
+      let nextX = myPaddleX;
+      if (heldKeys.left) nextX -= KEYBOARD_STEP_SRV;
+      if (heldKeys.right) nextX += KEYBOARD_STEP_SRV;
+      sendPaddleX(nextX);
+    }
+    requestAnimationFrame(keyboardLoop);
+  }
+  requestAnimationFrame(keyboardLoop);
+
+  // Mus/touch som tillgängligt komplement till piltangenterna
+  function canvasXFromClientX(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const relative = (clientX - rect.left) / rect.width;
+    return (relative * DISPLAY_WIDTH) / SCALE_X;
+  }
+  canvas.addEventListener('mousemove', (event) => {
+    if (!amIActivePlayer()) return;
+    sendPaddleX(canvasXFromClientX(event.clientX));
+  });
+  canvas.addEventListener('touchmove', (event) => {
+    if (!amIActivePlayer()) return;
+    event.preventDefault();
+    const touch = event.touches[0];
+    if (touch) sendPaddleX(canvasXFromClientX(touch.clientX));
+  }, { passive: false });
+
+  // ─────────────────────────────────────────────────────────────
+  // LÄMNA BANA
+  // ─────────────────────────────────────────────────────────────
+  leaveButton.addEventListener('click', () => {
+    socket.emit('leaveQueue');
+    hasJoinedGameScreen = false;
+    myRole = 'spectator';
+    myCourt = null;
+    lastCoinToss = null;
+    latestOwnCourtState = null;
+    gameScreen.classList.remove('is-active');
+    startScreen.classList.add('is-active');
+    selectedCourt = null;
+    document.querySelectorAll('.court-ticket').forEach((el) => el.classList.remove('is-selected'));
+    updatePlayButtonState();
+    leaderboardModal.classList.remove('is-open');
+    recordsModal.classList.remove('is-open');
+    renderReignPanel({ king: null });
+  });
+
+  updatePlayButtonState();
+})();
+</script>
+</body>
+</html>
