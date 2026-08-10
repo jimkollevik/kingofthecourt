@@ -1184,6 +1184,7 @@
       } else {
         reconcileOwnPaddle(ownPlayerState);
       }
+      if (state.rally === 'point-pause') myPaddleX = ownPlayerState.x;
       servePositionVersion = state.servePositionVersion;
     }
 
@@ -1349,12 +1350,12 @@
     drawTennisCourt(state);
 
     if (state.challenger) {
-      const challengerX = myRole === 'challenger' ? myPaddleX : state.challenger.x;
+      const challengerX = myRole === 'challenger' && state.rally !== 'point-pause' ? myPaddleX : state.challenger.x;
       const challengerReady = myRole === 'challenger' && isBallInSwingWindow(state, 'challenger');
       drawPaddle(challengerX, PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'challenger' && state.rally === 'awaiting-serve', challengerReady);
     }
     if (state.king) {
-      const kingX = myRole === 'king' ? myPaddleX : state.king.x;
+      const kingX = myRole === 'king' && state.rally !== 'point-pause' ? myPaddleX : state.king.x;
       const kingReady = myRole === 'king' && isBallInSwingWindow(state, 'king');
       drawPaddle(kingX, SERVER_HEIGHT - PADDLE_MARGIN_SRV, state.accent, state.phase === 'playing' && state.server === 'king' && state.rally === 'awaiting-serve', kingReady);
     }
@@ -1475,7 +1476,7 @@
   // ─────────────────────────────────────────────────────────────
   function amIActivePlayer() { return myRole === 'king' || myRole === 'challenger'; }
   function canMovePaddle() {
-    return amIActivePlayer() && latestOwnCourtState && latestOwnCourtState.phase === 'playing';
+    return amIActivePlayer() && latestOwnCourtState && latestOwnCourtState.phase === 'playing' && latestOwnCourtState.rally !== 'point-pause';
   }
 
   function reconcileOwnPaddle(playerState) {
